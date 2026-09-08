@@ -1,0 +1,9 @@
+test_name,module,status,duration,error,build
+test_login_valid,Login,PASS,1.3,,243
+test_login_invalid,Login,FAIL,1.1,InvalidCredentials,243
+test_add_cart,Cart,PASS,2.3,,243
+test_checkout,Checkout,FAIL,3.8,TimeoutException,243
+test_payment_card,Payment,FAIL,4.0,Payment API Error,243
+test_payment_upi,Payment,FAIL,5.0,TimeoutException,243
+test_order,Orders,PASS,2.1,,243
+test_profile_update,Profile,SKIP,0.0,Test skipped,243

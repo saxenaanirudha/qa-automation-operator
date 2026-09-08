@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QA Dashboard - Build {{ build_number }} | QA Automation Operator</title>
+  <style>
+    :root {
+      --bg-canvas: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-subtle: #f1f5f9;
+      --border-subtle: #e2e8f0;
+      --border-strong: #cbd5e1;
+
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --text-white: #ffffff;
+
+      --pass-main: #10b981;
+      --pass-bg: #ecfdf5;
+      --pass-text: #065f46;
+      --pass-border: #a7f3d0;
+
+      --warn-main: #f59e0b;
+      --warn-bg: #fffbeb;
+      --warn-text: #92400e;
+      --warn-border: #fde68a;
+
+      --fail-main: #ef4444;
+      --fail-bg: #fef2f2;
+      --fail-text: #991b1b;
+      --fail-border: #fecaca;
+
+      --info-main: #3b82f6;
+      --info-bg: #eff6ff;
+      --info-text: #1e40af;
+      --info-border: #bfdbfe;
+
+      --neutral-bg: #f1f5f9;
+      --neutral-text: #334155;
+      --neutral-border: #cbd5e1;
+
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      line-height: 1.5;
+      padding: 24px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    /* -------------------------------------------------------------
+       Header
+       ------------------------------------------------------------- */
+    .dashboard-header {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .brand-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .brand-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #2563eb;
+    }
+
+    .brand-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .brand-subtitle {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .build-pill {
+      background: #1e293b;
+      color: #ffffff;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
+
+    .header-status-summary {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .status-widget {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .status-widget .widget-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    /* -------------------------------------------------------------
+       Badges
+       ------------------------------------------------------------- */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .badge-lg {
+      padding: 6px 16px;
+      font-size: 13px;
+      border-radius: 24px;
+    }
+
+    .badge-sm {
+      padding: 2px 8px;
+      font-size: 11px;
+    }
+
+    .badge-pass, .badge-proceed, .badge-low, .badge-better, .badge-improving {
+      background-color: var(--pass-bg);
+      color: var(--pass-text);
+      border: 1px solid var(--pass-border);
+    }
+
+    .badge-warning, .badge-warn, .badge-review, .badge-medium, .badge-mixed {
+      background-color: var(--warn-bg);
+      color: var(--warn-text);
+      border: 1px solid var(--warn-border);
+    }
+
+    .badge-fail, .badge-block, .badge-high, .badge-critical, .badge-worse, .badge-worsening {
+      background-color: var(--fail-bg);
+      color: var(--fail-text);
+      border: 1px solid var(--fail-border);
+    }
+
+    .badge-neutral, .badge-stable, .badge-same, .badge-unknown, .badge-insufficient_history, .badge-skip {
+      background-color: var(--neutral-bg);
+      color: var(--neutral-text);
+      border: 1px solid var(--neutral-border);
+    }
+
+    .badge-info {
+      background-color: var(--info-bg);
+      color: var(--info-text);
+      border: 1px solid var(--info-border);
+    }
+
+    /* -------------------------------------------------------------
+       Top KPI Cards Grid
+       ------------------------------------------------------------- */
+    .grid-kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .kpi-card:hover {
+      box-shadow: var(--shadow-md);
+      border-color: var(--border-strong);
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.1;
+      letter-spacing: -0.5px;
+    }
+
+    .kpi-subtext {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    .kpi-highlight-pass {
+      border-left: 4px solid var(--pass-main);
+    }
+    .kpi-highlight-fail {
+      border-left: 4px solid var(--fail-main);
+    }
+    .kpi-highlight-warn {
+      border-left: 4px solid var(--warn-main);
+    }
+    .kpi-highlight-info {
+      border-left: 4px solid var(--info-main);
+    }
+
+    /* Highlighted Quality Gate & Release Decision cards */
+    .kpi-card-decision {
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      border-width: 1.5px;
+    }
+    .decision-pass {
+      border-color: var(--pass-main);
+      background: linear-gradient(180deg, #ffffff 0%, var(--pass-bg) 100%);
+    }
+    .decision-warning {
+      border-color: var(--warn-main);
+      background: linear-gradient(180deg, #ffffff 0%, var(--warn-bg) 100%);
+    }
+    .decision-fail {
+      border-color: var(--fail-main);
+      background: linear-gradient(180deg, #ffffff 0%, var(--fail-bg) 100%);
+    }
+
+    .mini-progress-track {
+      height: 6px;
+      width: 100%;
+      background: var(--bg-subtle);
+      border-radius: 3px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .mini-progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--pass-main);
+    }
+
+    /* -------------------------------------------------------------
+       Section Cards
+       ------------------------------------------------------------- */
+    .section-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: -0.3px;
+    }
+
+    .section-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    /* -------------------------------------------------------------
+       Quality Gate Hero Banner
+       ------------------------------------------------------------- */
+    .qg-hero-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 22px;
+      border-radius: var(--radius-md);
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .qg-hero-pass {
+      background-color: var(--pass-bg);
+      border: 1.5px solid var(--pass-border);
+    }
+
+    .qg-hero-warning {
+      background-color: var(--warn-bg);
+      border: 1.5px solid var(--warn-border);
+    }
+
+    .qg-hero-fail {
+      background-color: var(--fail-bg);
+      border: 1.5px solid var(--fail-border);
+    }
+
+    .qg-hero-title {
+      font-size: 17px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .qg-hero-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    .qg-hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Attention Box */
+    .attention-box {
+      background-color: #fff1f2;
+      border: 1px solid #fecdd3;
+      border-left: 5px solid var(--fail-main);
+      padding: 16px 20px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 20px;
+    }
+
+    .attention-box-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #9f1239;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .attention-box ul {
+      margin-left: 20px;
+      color: #881337;
+    }
+
+    .attention-box li {
+      font-size: 13.5px;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    /* -------------------------------------------------------------
+       Tables
+       ------------------------------------------------------------- */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--bg-subtle);
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background-color: #f8fafc;
+    }
+
+    /* -------------------------------------------------------------
+       Comparison Matrix
+       ------------------------------------------------------------- */
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .comparison-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+    }
+
+    .comparison-card .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .comparison-card .card-metric-flow {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .comparison-delta {
+      font-size: 13px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      display: inline-block;
+      margin-top: 4px;
+    }
+
+    .delta-positive {
+      background: var(--pass-bg);
+      color: var(--pass-text);
+    }
+
+    .delta-negative {
+      background: var(--fail-bg);
+      color: var(--fail-text);
+    }
+
+    .delta-neutral {
+      background: var(--neutral-bg);
+      color: var(--neutral-text);
+    }
+
+    /* -------------------------------------------------------------
+       Charts Grid
+       ------------------------------------------------------------- */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 20px;
+      margin-top: 16px;
+    }
+
+    .chart-box {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .chart-box img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--radius-sm);
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* -------------------------------------------------------------
+       Two-Column Layouts
+       ------------------------------------------------------------- */
+    .layout-2col {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .info-pane {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px;
+    }
+
+    .info-pane-title {
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .info-stat-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .info-stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13.5px;
+      padding-bottom: 6px;
+      border-bottom: 1px dashed var(--border-strong);
+    }
+
+    .info-stat-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    /* Spotlight Card */
+    .spotlight-card {
+      background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+      border: 1.5px solid #bfdbfe;
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .spotlight-badge {
+      background: #1d4ed8;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    /* Risk meter horizontal bar */
+    .risk-meter {
+      width: 100%;
+      max-width: 120px;
+      height: 8px;
+      background: var(--bg-subtle);
+      border-radius: 4px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+    .risk-meter-fill {
+      height: 100%;
+      border-radius: 4px;
+    }
+    .meter-low { background-color: var(--pass-main); }
+    .meter-medium { background-color: var(--warn-main); }
+    .meter-high, .meter-critical { background-color: var(--fail-main); }
+
+    /* Code & Error Display */
+    .code-pill {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12.5px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      padding: 2px 6px;
+      border-radius: 4px;
+      word-break: break-all;
+    }
+
+    .error-card {
+      background: #fff;
+      border: 1px solid var(--border-subtle);
+      border-left: 4px solid var(--fail-main);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+
+    .error-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .error-trace {
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 10px 14px;
+      border-radius: 6px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 24px;
+      text-align: center;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+      font-size: 14px;
+      font-style: italic;
+    }
+
+    .empty-state-success {
+      background: var(--pass-bg);
+      color: var(--pass-text);
+      font-style: normal;
+      font-weight: 600;
+      border: 1px solid var(--pass-border);
+    }
+
+    /* -------------------------------------------------------------
+       Footer
+       ------------------------------------------------------------- */
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* -------------------------------------------------------------
+       Responsive
+       ------------------------------------------------------------- */
+    @media (max-width: 768px) {
+      body {
+        padding: 12px 8px;
+      }
+      .dashboard-header {
+        padding: 16px;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header-status-summary {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .grid-kpis {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+      .layout-2col {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- =========================================================
+         1. PAGE HEADER
+         ========================================================= -->
+    <header class="dashboard-header">
+      <div class="brand-group">
+        <div class="brand-eyebrow">
+          <span>QA AUTOMATION OPERATOR</span>
+          <span>&bull;</span>
+          <span>DASHBOARD V2</span>
+        </div>
+        <h1 class="brand-title">Build Quality &amp; Release Readiness Dashboard</h1>
+        <div class="brand-subtitle">
+          <span class="build-pill">Build {{ build_number }}</span>
+          {% if generated_at %}
+            <span>&bull;</span>
+            <span>Generated: {{ generated_at }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="header-status-summary">
+        {% if trend_analysis and trend_analysis.overall_trend %}
+          <div class="status-widget">
+            <span class="widget-label">Overall Trend</span>
+            <span class="badge badge-lg badge-{{ trend_analysis.overall_trend|lower }}">{{ trend_analysis.overall_trend }}</span>
+          </div>
+        {% endif %}
+        <div class="status-widget">
+          <span class="widget-label">Quality Gate</span>
+          <span class="badge badge-lg badge-{{ quality_gate.status|lower }}">{{ quality_gate.status }}</span>
+        </div>
+        <div class="status-widget">
+          <span class="widget-label">Release Recommendation</span>
+          <span class="badge badge-lg badge-{{ quality_gate.release_recommendation|lower }}">{{ quality_gate.release_recommendation }}</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- =========================================================
+         2. TOP KPI CARDS
+         ========================================================= -->
+    <div class="grid-kpis">
+      <div class="kpi-card kpi-highlight-info">
+        <div class="kpi-label">Total Tests</div>
+        <div class="kpi-value">{{ summary.total }}</div>
+        <div class="kpi-subtext">Executed in build</div>
+      </div>
+
+      <div class="kpi-card kpi-highlight-pass">
+        <div class="kpi-label">Passed</div>
+        <div class="kpi-value" style="color: var(--pass-text);">{{ summary.passed }}</div>
+        <div class="kpi-subtext">Tests passing</div>
+      </div>
+
+      <div class="kpi-card kpi-highlight-fail">
+        <div class="kpi-label">Failed</div>
+        <div class="kpi-value" style="color: {% if summary.failed > 0 %}var(--fail-text){% else %}var(--pass-text){% endif %};">{{ summary.failed }}</div>
+        <div class="kpi-subtext">Tests failing</div>
+      </div>
+
+      <div class="kpi-card kpi-highlight-warn">
+        <div class="kpi-label">Skipped</div>
+        <div class="kpi-value" style="color: var(--warn-text);">{{ summary.skipped }}</div>
+        <div class="kpi-subtext">Tests skipped</div>
+      </div>
+
+      <div class="kpi-card kpi-highlight-pass">
+        <div class="kpi-label">Pass Rate</div>
+        <div class="kpi-value">{{ summary.pass_rate }}%</div>
+        <div class="mini-progress-track">
+          <div class="mini-progress-fill" style="width: {{ summary.pass_rate }}%;"></div>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-card-decision decision-{{ quality_gate.status|lower }}">
+        <div class="kpi-label">Quality Gate</div>
+        <div class="kpi-value" style="font-size: 24px;">
+          <span class="badge badge-lg badge-{{ quality_gate.status|lower }}">{{ quality_gate.status }}</span>
+        </div>
+        <div class="kpi-subtext">Status: {{ quality_gate.status }}</div>
+      </div>
+
+      <div class="kpi-card kpi-card-decision decision-{{ quality_gate.release_recommendation|lower }}">
+        <div class="kpi-label">Release</div>
+        <div class="kpi-value" style="font-size: 24px;">
+          <span class="badge badge-lg badge-{{ quality_gate.release_recommendation|lower }}">{{ quality_gate.release_recommendation }}</span>
+        </div>
+        <div class="kpi-subtext">Recommendation</div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         3. QUALITY GATE HERO & DETAILS
+         ========================================================= -->
+    <div class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            <span>Quality Gate &amp; Release Decision</span>
+          </h2>
+          <div class="section-subtitle">Release readiness validation based on automated quality policies</div>
+        </div>
+        <div>
+          <span class="badge badge-lg badge-{{ quality_gate.status|lower }}">QUALITY GATE: {{ quality_gate.status }}</span>
+        </div>
+      </div>
+
+      <!-- Hero Callout Banner -->
+      <div class="qg-hero-banner qg-hero-{{ quality_gate.status|lower }}">
+        <div>
+          <div class="qg-hero-title">
+            <span>QUALITY GATE: {{ quality_gate.status }}</span>
+            <span>&bull;</span>
+            <span>RELEASE RECOMMENDATION: {{ quality_gate.release_recommendation }}</span>
+          </div>
+          <div class="qg-hero-desc">
+            {% if quality_gate.status == 'PASS' %}
+              &check; Build meets all configured release criteria. Quality standards are fully satisfied.
+            {% elif quality_gate.status == 'WARNING' %}
+              &excl; Build has non-blocking quality warnings. Requires QA / Release Lead review before deployment.
+            {% else %}
+              &cross; Build failed release criteria and is blocked from production deployment.
+            {% endif %}
+          </div>
+        </div>
+        <div class="qg-hero-actions">
+          <span class="badge badge-lg badge-{{ quality_gate.release_recommendation|lower }}">
+            {{ quality_gate.release_recommendation }}
+          </span>
+        </div>
+      </div>
+
+      <!-- QA Attention Required (if any) -->
+      <div style="margin-bottom: 20px;">
+        <h3 style="font-size: 14px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">QA Attention Required</h3>
+        {% if attention_items %}
+          <div class="attention-box">
+            <div class="attention-box-title">&excl; Key issues requiring attention:</div>
+            <ul>
+              {% for item in attention_items %}
+                <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% else %}
+          <div class="empty-state empty-state-success" style="padding: 12px 16px; text-align: left;">
+            &check; No critical QA issues requiring immediate attention.
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Triggered Rules (if any) -->
+      {% if quality_gate.triggered_rules %}
+        <div style="margin-bottom: 24px;">
+          <h3 style="font-size: 14px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px;">Triggered Rules</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 120px;">Severity</th>
+                  <th style="width: 200px;">Rule</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for rule in quality_gate.triggered_rules %}
+                  <tr>
+                    <td><span class="badge badge-{{ rule.severity|lower }}">{{ rule.severity }}</span></td>
+                    <td style="font-weight: 700; font-family: ui-monospace, monospace;">{{ rule.rule }}</td>
+                    <td>{{ rule.message }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <p class="empty-state empty-state-success" style="margin-bottom: 20px; padding: 10px 16px; text-align: left;">
+          &check; No rules triggered. Quality standards met.
+        </p>
+      {% endif %}
+
+      <!-- Evaluated Checks Table -->
+      <div>
+        <h3 style="font-size: 14px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px;">Evaluated Policy Checks</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Check</th>
+                <th>Evaluated Value</th>
+                <th style="width: 120px;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for check_name, check_data in quality_gate.checks.items() %}
+                <tr>
+                  <td style="font-weight: 600;">{{ check_name | replace('_', ' ') | title }}</td>
+                  <td>{{ check_data.value }}</td>
+                  <td>
+                    <span class="badge badge-{{ check_data.status|lower }}">{{ check_data.status }}</span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         4. BUILD COMPARISON SECTION
+         ========================================================= -->
+    <div class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            <span>Build Comparison</span>
+          </h2>
+          <div class="section-subtitle">CURRENT BUILD vs PREVIOUS BUILD metric diff and test regression tracking</div>
+        </div>
+        {% if comparison %}
+          <div>
+            <span class="badge badge-lg badge-{{ comparison.overall_status|lower }}">Result: {{ comparison.overall_status }}</span>
+          </div>
+        {% endif %}
+      </div>
+
+      {% if comparison %}
+        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px; font-weight: 600;">
+          Comparing <strong>Build {{ comparison.previous_build }}</strong> &rarr; <strong>Build {{ comparison.current_build }}</strong>
+        </p>
+
+        <div class="comparison-grid">
+          <div class="comparison-card">
+            <div class="card-title">Pass Rate</div>
+            <div class="card-metric-flow">
+              <span>{{ comparison.summary.pass_rate.previous }}%</span>
+              <span style="color: var(--text-muted);">&rarr;</span>
+              <span>{{ comparison.summary.pass_rate.current }}%</span>
+            </div>
+            <div>
+              {% set pr_diff = comparison.summary.pass_rate.difference %}
+              <span class="comparison-delta {% if pr_diff > 0 %}delta-positive{% elif pr_diff < 0 %}delta-negative{% else %}delta-neutral{% endif %}">
+                {% if pr_diff > 0 %}&uarr; Better (+{{ pr_diff }}%){% elif pr_diff < 0 %}&darr; Worse ({{ pr_diff }}%){% else %}&rarr; Same (0%){% endif %}
+              </span>
+            </div>
+          </div>
+
+          <div class="comparison-card">
+            <div class="card-title">Failures</div>
+            <div class="card-metric-flow">
+              <span>{{ comparison.summary.failed.previous }}</span>
+              <span style="color: var(--text-muted);">&rarr;</span>
+              <span>{{ comparison.summary.failed.current }}</span>
+            </div>
+            <div>
+              {% set fail_diff = comparison.summary.failed.difference %}
+              <span class="comparison-delta {% if fail_diff < 0 %}delta-positive{% elif fail_diff > 0 %}delta-negative{% else %}delta-neutral{% endif %}">
+                {% if fail_diff < 0 %}&uarr; Better ({{ fail_diff }}){% elif fail_diff > 0 %}&darr; Worse (+{{ fail_diff }}){% else %}&rarr; Same (0){% endif %}
+              </span>
+            </div>
+          </div>
+
+          <div class="comparison-card">
+            <div class="card-title">Total Tests</div>
+            <div class="card-metric-flow">
+              <span>{{ comparison.summary.total_tests.previous if comparison.summary.total_tests is defined else comparison.summary.total.previous }}</span>
+              <span style="color: var(--text-muted);">&rarr;</span>
+              <span>{{ comparison.summary.total_tests.current if comparison.summary.total_tests is defined else comparison.summary.total.current }}</span>
+            </div>
+            <div>
+              <span class="comparison-delta delta-neutral">
+                {{ comparison.overall_status }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layout-2col">
+          <div class="info-pane">
+            <div class="info-pane-title">
+              <span>Newly Failing Tests</span>
+              <span class="badge badge-sm badge-fail">{{ comparison.newly_failing_tests | length }}</span>
+            </div>
+            {% if comparison.newly_failing_tests %}
+              <ul class="info-stat-list">
+                {% for t in comparison.newly_failing_tests %}
+                  <li class="info-stat-item">
+                    <span class="code-pill" style="color: var(--fail-text); font-weight: 600;">{{ t }}</span>
+                    <span class="badge badge-sm badge-fail">New Fail</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="empty-state" style="padding: 12px;">None &bull; No new regressions introduced.</p>
+            {% endif %}
+
+            <div class="info-pane-title" style="margin-top: 18px;">
+              <span>Recovered Tests</span>
+              <span class="badge badge-sm badge-pass">{{ comparison.recovered_tests | length }}</span>
+            </div>
+            {% if comparison.recovered_tests %}
+              <ul class="info-stat-list">
+                {% for t in comparison.recovered_tests %}
+                  <li class="info-stat-item">
+                    <span class="code-pill" style="color: var(--pass-text); font-weight: 600;">{{ t }}</span>
+                    <span class="badge badge-sm badge-pass">Fixed</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="empty-state" style="padding: 12px;">None &bull; No previously failing tests recovered.</p>
+            {% endif %}
+          </div>
+
+          <div class="info-pane">
+            <div class="info-pane-title">
+              <span>Persistent Failures</span>
+              <span class="badge badge-sm badge-warn">{{ comparison.persistent_failures | length }}</span>
+            </div>
+            {% if comparison.persistent_failures %}
+              <ul class="info-stat-list">
+                {% for t in comparison.persistent_failures %}
+                  <li class="info-stat-item">
+                    <span class="code-pill" style="color: var(--warn-text); font-weight: 600;">{{ t }}</span>
+                    <span class="badge badge-sm badge-warn">Persistent</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="empty-state" style="padding: 12px;">None &bull; No recurring failure backlog.</p>
+            {% endif %}
+
+            {% if comparison.tests_added or comparison.tests_removed %}
+              <div class="info-pane-title" style="margin-top: 18px;">
+                <span>Test Suite Changes</span>
+              </div>
+              <ul class="info-stat-list">
+                {% for t in comparison.tests_added %}
+                  <li class="info-stat-item">
+                    <span class="code-pill">{{ t }}</span>
+                    <span class="badge badge-sm badge-info">+ Added</span>
+                  </li>
+                {% endfor %}
+                {% for t in comparison.tests_removed %}
+                  <li class="info-stat-item">
+                    <span class="code-pill">{{ t }}</span>
+                    <span class="badge badge-sm badge-neutral">- Removed</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          No previous build available for comparison.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- =========================================================
+         5. BUILD QUALITY TREND VISUALIZATION
+         ========================================================= -->
+    <div class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            <span>Build Quality Trend</span>
+          </h2>
+          <div class="section-subtitle">Multi-build historical QA Trend Analysis and trajectory</div>
+        </div>
+        {% if trend_analysis and trend_analysis.overall_trend %}
+          <div>
+            <span class="badge badge-lg badge-{{ trend_analysis.overall_trend|lower }}">Overall QA Trend: {{ trend_analysis.overall_trend }}</span>
+          </div>
+        {% endif %}
+      </div>
+
+      {% if trend_analysis %}
+        <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px;">
+          Builds Analyzed: <strong>{{ trend_analysis.builds_analyzed | join(' &rarr; ') }}</strong>
+        </p>
+
+        <div class="layout-2col" style="margin-bottom: 16px;">
+          <div class="info-pane">
+            <div class="info-pane-title">
+              <span>Pass Rate History</span>
+              <span class="badge badge-sm badge-{{ trend_analysis.pass_rate_trend|lower }}">{{ trend_analysis.pass_rate_trend }}</span>
+            </div>
+            <p style="font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+              {{ trend_analysis.pass_rate_history | join('% &rarr; ') }}%
+            </p>
+            <p style="font-size: 13px; color: var(--text-secondary);">
+              <strong>Improving Modules:</strong> {{ trend_analysis.improving_modules | join(', ') or 'None' }}
+            </p>
+          </div>
+
+          <div class="info-pane">
+            <div class="info-pane-title">
+              <span>Failure Count History</span>
+              <span class="badge badge-sm badge-{{ trend_analysis.failure_trend|lower }}">{{ trend_analysis.failure_trend }}</span>
+            </div>
+            <p style="font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+              {{ trend_analysis.failure_history | join(' &rarr; ') }}
+            </p>
+            <p style="font-size: 13px; color: var(--text-secondary);">
+              <strong>Worsening Modules:</strong> {{ trend_analysis.worsening_modules | join(', ') or 'None' }}
+            </p>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          {% if charts.pass_rate_trend %}
+            <div class="chart-box">
+              <img src="{{ charts.pass_rate_trend }}" alt="Pass Rate Trend Line Chart">
+            </div>
+          {% endif %}
+          {% if charts.failure_trend %}
+            <div class="chart-box">
+              <img src="{{ charts.failure_trend }}" alt="Failure Count Trend Line Chart">
+            </div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          Not enough historical data to display trend analysis.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- =========================================================
+         6. RISK ANALYSIS SECTION
+         ========================================================= -->
+    <div class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            <span>Risky Modules</span>
+          </h2>
+          <div class="section-subtitle">Module Risk Analysis &amp; defect probability modeling (0-100 scale)</div>
+        </div>
+      </div>
+
+      {% if risk_analysis and risk_analysis.ranked_modules %}
+        <!-- Highest Risk Module Spotlight -->
+        {% set top_mod_name = risk_analysis.ranked_modules[0] %}
+        {% set top_mod_data = risk_analysis.modules[top_mod_name] %}
+        <div class="spotlight-card">
+          <div>
+            <span class="spotlight-badge">Highest Risk Module</span>
+            <h3 style="font-size: 18px; font-weight: 800; color: #1e3a8a; margin-top: 4px;">{{ top_mod_name }}</h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
+              Current Failures: <strong>{{ top_mod_data.factors.current_failures.value }}</strong> &bull;
+              Trend: <strong>{{ top_mod_data.factors.trend.value }}</strong> &bull;
+              Failure Share: <strong>{{ top_mod_data.factors.failure_share.value }}%</strong>
+            </p>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 22px; font-weight: 800; color: #1e3a8a;">
+              {{ top_mod_data.score }} <span style="font-size: 14px; font-weight: 600; color: var(--text-muted);">/ 100</span>
+            </div>
+            <span class="badge badge-{{ top_mod_data.level|lower }}">{{ top_mod_data.level }}</span>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px;">Rank</th>
+                <th>Module</th>
+                <th>Risk Score</th>
+                <th>Level</th>
+                <th>Current Failures</th>
+                <th>Trend</th>
+                <th>Persistent Failures</th>
+                <th>Failure Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for mod in risk_analysis.ranked_modules %}
+                {% set data = risk_analysis.modules[mod] %}
+                <tr>
+                  <td style="font-weight: 700; color: var(--text-muted);">#{{ loop.index }}</td>
+                  <td style="font-weight: 700; color: var(--text-primary);">{{ mod }}</td>
+                  <td>
+                    <strong>{{ data.score }}</strong> / 100
+                    <div class="risk-meter">
+                      <div class="risk-meter-fill meter-{{ data.level|lower }}" style="width: {{ data.score }}%;"></div>
+                    </div>
+                  </td>
+                  <td><span class="badge badge-{{ data.level|lower }}">{{ data.level }}</span></td>
+                  <td>{{ data.factors.current_failures.value }}</td>
+                  <td><span class="badge badge-sm badge-{{ data.factors.trend.value|lower }}">{{ data.factors.trend.value }}</span></td>
+                  <td>{{ data.factors.persistent_failures.value }}</td>
+                  <td>{{ data.factors.failure_share.value }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if charts.risk_scores %}
+          <div class="charts-grid" style="margin-top: 20px;">
+            <div class="chart-box">
+              <img src="{{ charts.risk_scores }}" alt="Module Risk Scores Chart">
+            </div>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="empty-state">
+          No module risk data available.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- =========================================================
+         7. FLAKY TEST DETECTOR SECTION
+         ========================================================= -->
+    <div class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            <span>Flaky Test Detector</span>
+          </h2>
+          <div class="section-subtitle">Flaky Test Analysis detecting non-deterministic test behavior across builds</div>
+        </div>
+      </div>
+
+      {% if flaky_analysis and (flaky_analysis.flaky_tests or flaky_analysis.possibly_flaky_tests) %}
+        <div class="comparison-grid" style="margin-bottom: 20px;">
+          <div class="comparison-card">
+            <div class="card-title">Flaky Tests</div>
+            <div class="kpi-value" style="color: var(--fail-text); font-size: 24px;">{{ flaky_analysis.flaky_tests | length }}</div>
+            <div class="kpi-subtext">High transition rate</div>
+          </div>
+          <div class="comparison-card">
+            <div class="card-title">Possibly Flaky</div>
+            <div class="kpi-value" style="color: var(--warn-text); font-size: 24px;">{{ flaky_analysis.possibly_flaky_tests | length }}</div>
+            <div class="kpi-subtext">Moderate instability</div>
+          </div>
+          <div class="comparison-card">
+            <div class="card-title">Top Flaky Module</div>
+            <div class="kpi-value" style="font-size: 20px;">{{ flaky_analysis.top_flaky_module or 'None' }}</div>
+            <div class="kpi-subtext">Highest concentration</div>
+          </div>
+        </div>
+
+        {% if flaky_analysis.ranked_flaky_tests %}
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Test Name</th>
+                  <th>Module</th>
+                  <th>Flaky Score</th>
+                  <th>Classification</th>
+                  <th>Transitions</th>
+                  <th>Status History</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for test_name in flaky_analysis.ranked_flaky_tests %}
+                  {% set data = flaky_analysis.tests[test_name] %}
+                  <tr>
+                    <td>
+                      <span class="code-pill" style="font-weight: 700;">{{ test_name }}</span>
+                    </td>
+                    <td>{{ data.module }}</td>
+                    <td>
+                      <strong>{{ data.flaky_score }}</strong> / 100
+                      <div class="risk-meter">
+                        <div class="risk-meter-fill meter-{{ data.classification|lower }}" style="width: {{ data.flaky_score }}%;"></div>
+                      </div>
+                    </td>
+                    <td><span class="badge badge-{{ data.classification|lower }}">{{ data.classification }}</span></td>
+                    <td><strong>{{ data.transitions }}</strong></td>
+                    <td>
+                      <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+                        {% for h in data.history %}
+                          <span class="badge badge-sm badge-{{ h.status|lower }}">{{ h.status }}</span>
+                          {% if not loop.last %}<span style="color: var(--text-muted); font-size: 10px;">&rarr;</span>{% endif %}
+                        {% endfor %}
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="empty-state empty-state-success">
+          &check; No flaky tests detected in the analyzed build history. No flaky tests detected.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- =========================================================
+         8. FAILURE ANALYSIS & FAILED TEST DETAILS
+         ========================================================= -->
+    <div class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            <span>Failure Analysis</span>
+          </h2>
+          <div class="section-subtitle">Root-cause breakdown, error distribution, and failed test diagnostics</div>
+        </div>
+        <div>
+          <span class="badge badge-lg {% if failure_analysis.total_failures > 0 %}badge-fail{% else %}badge-pass{% endif %}">
+            Total Failures: {{ failure_analysis.total_failures }}
+          </span>
+        </div>
+      </div>
+
+      <div class="comparison-grid" style="margin-bottom: 20px;">
+        <div class="comparison-card">
+          <div class="card-title">Total Failures</div>
+          <div class="kpi-value" style="color: {% if failure_analysis.total_failures > 0 %}var(--fail-text){% else %}var(--pass-text){% endif %}; font-size: 24px;">
+            {{ failure_analysis.total_failures }}
+          </div>
+        </div>
+        <div class="comparison-card">
+          <div class="card-title">Most Failed Module</div>
+          <div class="kpi-value" style="font-size: 20px;">
+            {{ failure_analysis.most_failed_module or 'None' }}
+          </div>
+        </div>
+        <div class="comparison-card">
+          <div class="card-title">Most Common Error</div>
+          <div class="kpi-value" style="font-size: 16px; word-break: break-word;">
+            {{ failure_analysis.most_common_error or 'None' }}
+          </div>
+        </div>
+      </div>
+
+      <div class="layout-2col" style="margin-bottom: 20px;">
+        <div class="info-pane">
+          <div class="info-pane-title">
+            <span>Failures by Module</span>
+          </div>
+          {% if failure_analysis.failures_by_module %}
+            <ul class="info-stat-list">
+              {% for mod, count in failure_analysis.failures_by_module.items() %}
+                <li class="info-stat-item">
+                  <span style="font-weight: 600;">{{ mod }}</span>
+                  <span class="badge badge-sm badge-fail">{{ count }} failure{% if count > 1 %}s{% endif %}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="empty-state" style="padding: 12px;">No module failures.</p>
+          {% endif %}
+        </div>
+
+        <div class="info-pane">
+          <div class="info-pane-title">
+            <span>Error Distribution</span>
+          </div>
+          {% if failure_analysis.error_distribution %}
+            <ul class="info-stat-list">
+              {% for err, count in failure_analysis.error_distribution.items() %}
+                <li class="info-stat-item">
+                  <span class="code-pill" style="max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ err }}">{{ err }}</span>
+                  <span class="badge badge-sm badge-warn">{{ count }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="empty-state" style="padding: 12px;">No errors recorded.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if charts.module_failures %}
+        <div class="charts-grid" style="margin-bottom: 24px;">
+          <div class="chart-box">
+            <img src="{{ charts.module_failures }}" alt="Module Failures Bar Chart">
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Failed Test Details -->
+      <div>
+        <h3 style="font-size: 15px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;">
+          Failed Test Details
+        </h3>
+
+        {% if failed_test_details %}
+          {% for t in failed_test_details %}
+            <div class="error-card">
+              <div class="error-header">
+                <div>
+                  <span class="code-pill" style="font-weight: 700; color: var(--fail-text);">{{ t.test_name }}</span>
+                  <span style="font-size: 12px; color: var(--text-muted); margin-left: 8px;">Module: <strong>{{ t.module }}</strong></span>
+                  {% if t.duration %}
+                    <span style="font-size: 12px; color: var(--text-muted); margin-left: 8px;">Duration: <strong>{{ t.duration }}s</strong></span>
+                  {% endif %}
+                </div>
+                <div>
+                  <span class="badge badge-sm badge-fail">FAIL</span>
+                </div>
+              </div>
+              <pre class="error-trace">{{ t.error }}</pre>
+            </div>
+          {% endfor %}
+        {% elif failure_analysis.failed_tests %}
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Test Name</th>
+                  <th style="width: 100px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for test in failure_analysis.failed_tests %}
+                  <tr>
+                    <td><span class="code-pill" style="color: var(--fail-text); font-weight: 700;">{{ test }}</span></td>
+                    <td><span class="badge badge-sm badge-fail">FAIL</span></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty-state empty-state-success">
+            &check; No failing tests in current build.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- =========================================================
+         9. FOOTER
+         ========================================================= -->
+    <footer>
+      <p>Generated by <strong>QA Automation Operator</strong> &bull; Build {{ build_number }} &bull; {{ generated_at }}</p>
+      <p style="color: var(--text-muted); font-size: 11px;">Automated Quality Engineering &amp; Release Readiness Dashboard</p>
+    </footer>
+
+  </div>
+</body>
+</html>
