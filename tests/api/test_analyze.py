@@ -8,7 +8,7 @@ client = TestClient(app)
 
 
 def test_analyze_csv_upload():
-    build_num = int(time.time_ns() % 1000000) + 10000
+    build_num = int(time.time_ns() // 1000)
     csv_content = (
         f"test_name,module,status,duration,error,build\n"
         f"test_auth,Auth,PASS,1.2,,{build_num}\n"
@@ -27,7 +27,7 @@ def test_analyze_csv_upload():
 
 
 def test_analyze_junit_xml_upload():
-    build_num = int(time.time_ns() % 1000000) + 20000
+    build_num = int(time.time_ns() // 1000) + 1
     xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
     <testsuites>
         <properties>

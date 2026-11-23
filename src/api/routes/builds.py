@@ -272,7 +272,12 @@ def generate_build_report(
 
     df = pd.DataFrame([{"test_name": r.test_name, "module": r.module, "status": r.status, "duration": r.duration, "error": r.error, "build": build_number} for r in test_results])
     failure_analysis = analyze_failures(df)
-    comparison = compare_with_previous_build(build_number, session=session) if build_number else None
+    comparison = None
+    if build_number:
+        try:
+            comparison = compare_with_previous_build(build_number, session=session)
+        except Exception:
+            comparison = None
     trend = analyze_trends(session=session) if len(get_all_builds(session=session)) >= 3 else None
     risk = analyze_risk(build_number, session=session)
     quality_gate = evaluate_quality_gate(build_number, session=session)

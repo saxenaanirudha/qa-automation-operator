@@ -259,3 +259,36 @@ def test_cli_execution_remains_functional():
     assert determine_exit_code("FAIL", enforce=True) == 1
     assert determine_exit_code("FAIL", enforce=False) == 0
 
+
+def test_generate_report_without_preceding_build_succeeds():
+    """
+    Regression Test: Generating an HTML report for an isolated initial build
+    (which has no preceding build in the database) must safely handle
+    NoPreviousBuildError and return HTTP 200.
+    """
+    from src.database.database import get_session
+    import time
+    import pandas as pd
+
+    isolated_build = int(time.time_ns() // 1000) % 900000000 + 500000000
+    session = get_session()
+    summary = {
+        "build": isolated_build,
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "failure_rate": 0.0,
+    }
+    df = pd.DataFrame([{"test_name": "t1", "module": "M", "status": "PASS", "duration": 0.1, "error": None, "build": isolated_build}])
+    save_build_result(summary, df, session=session)
+
+    res = client.post(f"/builds/{isolated_build}/report")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["build"] == isolated_build
+    assert data["status"] == "generated"
+    assert "report_path" in data
+
+
