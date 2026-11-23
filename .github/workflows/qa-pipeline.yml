@@ -1,0 +1,77 @@
+name: QA Automation CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  qa-pipeline:
+    name: Run Pytest & QA Automation Operator
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create Reports Directory
+        run: mkdir -p reports
+
+      - name: Run Pytest & Generate JUnit XML
+        id: run_tests
+        continue-on-error: true
+        run: |
+          pytest -v --junitxml=reports/pytest-results.xml
+
+      - name: Run QA Automation Operator (Dogfooding Pytest Output)
+        id: qa_operator
+        continue-on-error: true
+        env:
+          ENVIRONMENT: "development"
+          API_KEY: ${{ secrets.API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          REPORT_BASE_URL: ${{ secrets.REPORT_BASE_URL }}
+        run: |
+          python main.py \
+            --input reports/pytest-results.xml \
+            --format junit \
+            --build "${{ github.run_number }}" \
+            --enforce-quality-gate
+
+      - name: Upload HTML QA Report & XML Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-report-build-${{ github.run_number }}
+          path: |
+            reports/*.html
+            reports/*.xml
+            reports/assets/**
+          retention-days: 14
+
+      - name: Check Final Workflow Outcome
+        if: always()
+        run: |
+          echo "=== CI Final Results ==="
+          echo "Pytest Step Outcome: ${{ steps.run_tests.outcome }}"
+          echo "QA Operator Outcome: ${{ steps.qa_operator.outcome }}"
+          
+          if [ "${{ steps.run_tests.outcome }}" != "success" ] || [ "${{ steps.qa_operator.outcome }}" != "success" ]; then
+            echo "CI Pipeline Failed!"
+            exit 1
+          fi
+          echo "CI Pipeline Passed!"

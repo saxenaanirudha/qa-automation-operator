@@ -1,0 +1,116 @@
+risk:
+  # Risk level classification thresholds
+  levels:
+    low_max: 39
+    medium_max: 69
+
+  # Maximum weight for each risk factor (must sum to 100)
+  weights:
+    current_failures: 40
+    trend: 25
+    persistent_failures: 20
+    failure_share: 15
+
+  # Factor A — Current Failure Count scoring brackets
+  current_failure_brackets:
+    # [max_failures, score]  — evaluated in order; first match wins
+    - [0, 0]
+    - [1, 8]
+    - [2, 16]
+    - [3, 24]
+    - [4, 32]
+    # 5+ failures → max weight
+    # Anything above 4 falls through to max
+
+  # Factor B — Trend scoring
+  trend_scores:
+    IMPROVING: 0
+    STABLE: 8
+    MIXED: 15
+    WORSENING: 25
+    UNKNOWN: 0
+
+  # Factor C — Persistent Failure scoring brackets
+  persistent_failure_brackets:
+    - [0, 0]
+    - [1, 5]
+    - [2, 10]
+    - [3, 15]
+    # 4+ persistent failures → max weight
+
+  # Factor D — Failure Share (%) scoring brackets
+  failure_share_brackets:
+    # [max_percent, score]  — first match wins
+    - [0, 0]
+    - [20, 3]
+    - [40, 6]
+    - [60, 9]
+    - [80, 12]
+    # 81-100% → max weight
+
+quality_gate:
+  pass_rate:
+    warning_below: 95.0
+    fail_below: 90.0
+
+  failure_count:
+    warning_at: 5
+    fail_at: 10
+
+  high_risk_modules:
+    warning_at: 1
+    fail_at: 2
+
+  overall_trend:
+    warning_on:
+      - WORSENING
+
+  build_comparison:
+    warning_on:
+      - WORSE
+
+  newly_failing_tests:
+    warning_at: 3
+    fail_at: 6
+
+flaky_detection:
+  history_limit: 10
+  minimum_observations: 3
+
+  thresholds:
+    possibly_flaky: 25.0
+    flaky: 50.0
+
+notifications:
+  slack:
+    enabled: false
+  teams:
+    enabled: false
+  timeout_seconds: 10
+  max_risk_modules: 3
+  max_new_failures: 5
+  max_flaky_tests: 3
+
+parser:
+  default_format: auto
+  max_error_length: 500
+
+  junit:
+    build_properties:
+      - build
+      - build_number
+      - BUILD_NUMBER
+
+ci:
+  enforce_quality_gate: false
+  fail_on_warning: false
+
+database:
+  echo: false
+  pool_pre_ping: true
+
+
+
+
+
+

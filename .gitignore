@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+.env
+.env.*
+!.env.example
+*.log
+
+# Pytest cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+
+# Generated reports and data
+reports/*
+!reports/.gitkeep
+sample_data/*
+!sample_data/.gitkeep
+
+# Local database
+qa_results.db
+*.sqlite
+*.sqlite3
+*.db
