@@ -1,6 +1,7 @@
 import pandas as pd
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from src.database.database import get_session
 from src.database.models import Build, TestResult
 
@@ -82,6 +83,9 @@ def save_build_result(summary: Dict[str, Any], df: pd.DataFrame, session: Option
         # Refresh to load attributes
         session.refresh(build)
         return build
+    except IntegrityError as e:
+        session.rollback()
+        raise DuplicateBuildError(f"Build {build_num} already exists in database.") from e
     except Exception as e:
         session.rollback()
         raise e

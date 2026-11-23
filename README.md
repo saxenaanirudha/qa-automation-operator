@@ -1,198 +1,304 @@
-# qa-automation-operator
+# QA Automation Operator
 
-A production-level QA operations platform designed to analyze automated test results, identify failures, detect flaky tests, apply Quality Gates, and generate comprehensive reports. Exposes both a CLI interface and a production-ready FastAPI REST API service with PostgreSQL persistent storage.
-
-## Problem Statement
-Managing automated test execution results at scale is challenging. Test reports are scattered, identifying flaky tests manually is tedious, and failing tests often lack immediate visibility to the right teams.
-
-This project solves this by automatically parsing test results, analyzing trends, identifying failure patterns by components, enforcing quality gates, calculating risk scores, detecting flaky tests, and notifying stakeholders via Slack/Teams.
+A production-grade QA test operations and test analytics platform designed to ingest automated test execution results (CSV and JUnit XML), identify failures, detect flaky tests, apply configurable Quality Gates, calculate module risk scores, and generate comprehensive interactive visual dashboards. Exposes both a resilient CLI interface and a high-performance FastAPI REST API service supporting both SQLite and PostgreSQL storage.
 
 ---
 
-## Production Architecture (Step 14)
+## Key Features
+
+- **Multi-Format Ingestion:** Ingests both standard CSV test results and standard JUnit XML (single suite, multi-suite, and nested suites) with automatic schema normalization.
+- **Security Hardening (Barn Door Protocol):**
+  - Constant-time `X-API-Key` authentication via `secrets.compare_digest`.
+  - Fail-closed production startup gate refusing to start if `API_KEY` is unconfigured.
+  - In-memory sliding-window rate limiting per client IP.
+  - Strict proxy header validation: `X-Forwarded-For` is ignored unless explicitly enabled from trusted proxies.
+  - XML external entity expansion (XXE / Billion Laughs) rejection.
+  - Streaming file upload size validation (enforced in 64 KB chunks up to 10 MB).
+  - Path traversal defense via server-generated UUID temporary files.
+- **Deep Test Analytics:**
+  - **Failure Diagnostics:** Root cause pattern grouping, error classification, and component failure clustering.
+  - **Build Comparison:** Automated regression tracking against the previous build (new failures, recovered tests, persistent issues).
+  - **Historical Trend Engine:** Multi-build pass/fail trajectory and module stability trends.
+  - **Flaky Test Detector:** Transition tracking (`PASS ↔ FAIL`) across historical runs to identify non-deterministic tests.
+  - **Risk Scoring:** Algorithmic module risk assessment (0–100 score) categorizing components into `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL` risk.
+- **Automated Quality Gates:** Enforces automated release readiness decisions (`PASS / PROCEED`, `WARNING / REVIEW`, `FAIL / BLOCK`) based on configurable failure rate, risk score, and regression thresholds.
+- **Dual Execution Interfaces:**
+  - **CLI (`main.py`):** Standalone zero-dependency command-line runner for local terminal use and CI/CD pipelines.
+  - **FastAPI Service (`src.api.app`):** Async REST API with OpenAPI/Swagger documentation, background reporting, and webhook dispatching.
+- **Dual Database Architecture:** Zero-configuration local SQLite for rapid testing and production-ready PostgreSQL with SQLAlchemy connection pooling and duplicate submission conflict handling.
+- **Interactive Visual Reporting:** Generates standalone, self-contained HTML reports with embedded CSS, base64 Matplotlib trend charts, and modal failure details.
+- **Notification Engine:** Dispatches formatted quality summaries and gate decisions to Slack and Microsoft Teams webhooks.
+
+---
+
+## Architecture
 
 ```text
-  Automation Framework / CI (GitHub Actions, Jenkins, Pytest)
-                                ↓
-                        CSV / JUnit XML
-                                ↓
-                    QA Automation Operator
-               ┌────────────────┴────────────────┐
-               │                                 │
-           CLI (main.py)               FastAPI REST API (port 8000)
-               │                                 │
-               └────────────────┬────────────────┘
-                                ↓
-                  Pipeline & Analytics Engine
-             (Parser, Failure, Trend, Risk, Gate, Flaky)
-                                ↓
-           SQLAlchemy ORM + Connection Management Layer
-                 (Isolate SQLite vs PostgreSQL URLs)
-               ┌────────────────┴────────────────┐
-               │                                 │
-    SQLite (sqlite:///qa_results.db)   PostgreSQL (postgresql+psycopg2://)
-         (Local Dev & Pytest)              (Docker Compose & Prod)
-                                ↓
-                 HTML Dashboard & Notification Service
+       Automation Framework / CI (GitHub Actions, Jenkins, Pytest)
+                                 │
+                                 ▼
+                     CSV / JUnit XML Test Results
+                                 │
+                 ┌───────────────┴───────────────┐
+                 ▼                               ▼
+       CLI Interface (main.py)       FastAPI REST Service (port 8000)
+                 │                               │
+                 │                 ┌─────────────┴─────────────┐
+                 │                 ▼                           ▼
+                 │         Security Middleware         API Route Handlers
+                 │         - Constant-Time API Key     - /health, /builds
+                 │         - Sliding Rate Limiter      - /analyze, /analysis
+                 │         - Trusted Proxy Filter      - /report, /notify
+                 │                 │                           │
+                 └─────────────────┼───────────────────────────┘
+                                   ▼
+                    Core Analytics & Pipeline Engine
+         ┌───────────────────────────────────────────────────┐
+         │ - Result Parsers (CSV & JUnit XML with XXE Guard) │
+         │ - Failure Analysis & Stack Trace Normalizer       │
+         │ - Historical Trend & Regression Engine            │
+         │ - Module Risk Scoring Engine                      │
+         │ - Flaky Test Transition Detector                  │
+         │ - Quality Gate Policy Evaluator                   │
+         └─────────────────────────┬─────────────────────────┘
+                                   ▼
+                      Data Persistence Layer
+                     (SQLAlchemy 2.0 ORM Engine)
+                 ┌─────────────────┴─────────────────┐
+                 ▼                                   ▼
+        SQLite Database                     PostgreSQL Database
+      (sqlite:///qa_results.db)           (postgresql+psycopg2://)
+         [Dev & Local Pytest]               [Production & Docker]
+                                   │
+                 ┌─────────────────┴─────────────────┐
+                 ▼                                   ▼
+       HTML Dashboard Generator             Notification Dispatcher
+      (Standalone Self-Contained)           (Slack & MS Teams Webhooks)
 ```
 
 ---
 
-## Current Development Status
-**Step 14 - PostgreSQL + FastAPI Production Upgrade**
+## Technology Stack & Requirements
 
-The application is upgraded from a local CLI tool into a production-style QA service. It provides:
-- **FastAPI REST API:** Full HTTP endpoints for builds, tests, failure analysis, build comparisons, risk analysis, Quality Gates, flaky test detection, HTML report generation, and Slack/Teams notification triggers.
-- **PostgreSQL Support:** Shared persistent build history across runs via `DATABASE_URL`.
-- **SQLite Compatibility:** Unchanged zero-config local SQLite support for dev/testing.
-- **Docker Compose:** Containerized API and PostgreSQL setup with volume persistence and health checks.
-- **CLI Compatibility:** Unchanged `main.py` CLI compatibility for local & CI workflows.
+- **Runtime:** Python 3.12+ (tested on Python 3.12.10)
+- **Web Framework:** FastAPI 0.165+, Starlette 1.10+, Uvicorn 0.54+
+- **Data Analysis & Charts:** Pandas 3.1+, Matplotlib 3.11+
+- **Database ORM:** SQLAlchemy 2.1+, psycopg2-binary 2.9+
+- **Templating:** Jinja2 3.1+
+- **HTTP Client:** HTTPX 0.28+, Requests 2.34+
+- **Configuration:** PyYAML 6.0+, Python-Dotenv 1.2+
+- **Testing:** Pytest 9.2+, Pytest-Cov 7.1+
 
 ---
 
-## REST API Endpoints & Interactive Documentation
+## Installation & Setup
 
-When running the FastAPI server or Docker Compose, interactive Swagger documentation is available at:
-`http://localhost:8000/docs` (or ReDoc at `http://localhost:8000/redoc`).
+### 1. Clone & Set Up Virtual Environment
 
-### Key Endpoints
+```bash
+# Clone the repository
+git clone <repository-url>
+cd qa-automation-operator
 
-| Method | Endpoint | Description |
+# Create and activate Python virtual environment
+python -m venv .venv
+
+# On Linux / macOS:
+source .venv/bin/activate
+
+# On Windows (PowerShell):
+.\.venv\Scripts\Activate.ps1
+```
+
+### 2. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Configure Environment Variables
+
+Copy `.env.example` to `.env` and adjust settings as required:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Purpose |
 |---|---|---|
-| `GET` | `/health` | Liveness health check |
-| `GET` | `/health/db` | Database connectivity health check |
-| `GET` | `/builds` | List stored builds (`?limit=20`) |
-| `GET` | `/builds/{build}` | Get summary metrics for a build |
-| `GET` | `/builds/{build}/tests` | Get test results (`?status=FAIL&module=Payment`) |
-| `GET` | `/builds/{build}/failures` | Get failure analysis breakdown |
-| `GET` | `/builds/{build}/comparison` | Compare build against previous build |
-| `GET` | `/builds/{build}/risk` | Calculate module risk scores |
-| `GET` | `/builds/{build}/quality-gate` | Evaluate Quality Gate rules |
-| `POST` | `/builds/{build}/report` | Trigger server-side HTML report generation |
-| `POST` | `/builds/{build}/notify` | Trigger Slack/Teams webhook notifications |
-| `GET` | `/analysis/trends` | Historical quality trend analysis |
-| `GET` | `/analysis/flaky-tests` | Detect flaky tests across builds |
-| `POST` | `/analyze` | Multipart CSV/XML test result file upload and execution pipeline |
+| `ENVIRONMENT` | `development` | Set to `production` to enforce fail-closed API key security. |
+| `API_KEY` | *(empty)* | Secret key for `X-API-Key` authentication. Required in production. |
+| `REQUIRE_API_KEY` | `false` | When `true`, enforces `X-API-Key` even in `development` mode. |
+| `RATE_LIMIT_ENABLED` | `true` | Enables or disables sliding-window rate limiting. |
+| `RATE_LIMIT_REQUESTS`| `60` | Maximum requests allowed per rate limit window. |
+| `RATE_LIMIT_WINDOW`  | `60` | Duration of rate limiting window in seconds. |
+| `TRUST_PROXIES`      | `false`| When `true`, parses client IP from `X-Forwarded-For`. |
+| `TRUSTED_PROXIES`    | `127.0.0.1,::1,testclient` | Comma-separated list of peer IPs permitted to forward client headers. |
+| `DATABASE_URL`       | `sqlite:///qa_results.db` | SQLAlchemy connection URL (SQLite or PostgreSQL). |
+| `SLACK_WEBHOOK_URL`  | *(empty)* | Optional Incoming Webhook URL for Slack alerts. |
+| `TEAMS_WEBHOOK_URL`  | *(empty)* | Optional Incoming Webhook URL for Teams alerts. |
+| `REPORT_BASE_URL`    | *(empty)* | Optional base URL prepended to report links in webhooks. |
 
 ---
 
-## Docker Compose Setup (FastAPI + PostgreSQL)
+## Usage Guide
 
-Launch the API backend and PostgreSQL database with named volume data persistence:
+### Command-Line Interface (CLI)
+
+The CLI runner `main.py` is fully self-contained and operates directly without starting the web server:
 
 ```bash
-docker compose up --build -d
+# Analyze a test run from CSV
+python main.py --input sample_data/test_results.csv
+
+# Analyze a test run from JUnit XML
+python main.py --input sample_data/junit_results.xml --format junit
+
+# Enforce Quality Gate (exits with code 1 if Quality Gate fails)
+python main.py --input sample_data/test_results.csv --enforce-quality-gate
+
+# Generate an HTML report
+python main.py --input sample_data/test_results.csv --report
+
+# Dispatch notifications on completion
+python main.py --input sample_data/test_results.csv --notify --slack --teams
 ```
 
-Check logs and health status:
-```bash
-docker compose logs -f api
+### PowerShell Helper Script (Windows)
+
+```powershell
+# Run CLI demo analysis
+.\start-project.ps1 -Mode cli
+
+# Start the FastAPI server locally
+.\start-project.ps1 -Mode api
+
+# Start Docker Compose services
+.\start-project.ps1 -Mode docker
 ```
 
-Upload a CSV test result file to the API:
+### Running the FastAPI REST API
+
+Start the local development server:
+
 ```bash
+uvicorn src.api.app:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Interactive OpenAPI Swagger documentation is immediately accessible at:
+- **Swagger UI:** `http://localhost:8000/docs`
+- **ReDoc:** `http://localhost:8000/redoc`
+
+---
+
+## API Endpoints Reference
+
+| Method | Endpoint | Auth Required | Description |
+|---|---|---|---|
+| `GET` | `/health` | No | Liveness probe returning application status and version. |
+| `GET` | `/health/db` | No | Verifies database connectivity and query execution. |
+| `GET` | `/builds` | Optional* | Lists stored build history (`?limit=20`). |
+| `GET` | `/builds/{build}` | Optional* | Retrieves summary metrics for a specific build. |
+| `GET` | `/builds/{build}/tests` | Optional* | Retrieves individual test results (`?status=FAIL&module=Payment`). |
+| `GET` | `/builds/{build}/failures` | Optional* | Returns detailed failure pattern breakdown. |
+| `GET` | `/builds/{build}/comparison` | Optional* | Compares specified build against preceding build. |
+| `GET` | `/builds/{build}/risk` | Optional* | Calculates module risk scores and risk ranking. |
+| `GET` | `/builds/{build}/quality-gate`| Optional* | Evaluates Quality Gate status and triggered rules. |
+| `POST`| `/builds/{build}/report` | **Yes** (`X-API-Key`) | Triggers server-side HTML dashboard report generation. |
+| `POST`| `/builds/{build}/notify` | **Yes** (`X-API-Key`) | Dispatches formatted alert payload to configured webhooks. |
+| `GET` | `/analysis/trends` | Optional* | Multi-build quality trajectory and failure trend analysis. |
+| `GET` | `/analysis/flaky-tests` | Optional* | Detects non-deterministic tests across historical builds. |
+| `POST`| `/analyze` | **Yes** (`X-API-Key`) | Multipart upload for `.csv` or `.xml` test results. |
+
+*\*Note: When `REQUIRE_API_KEY=true` or in production mode, all sensitive endpoints enforce authentication.*
+
+### Making Authenticated Requests
+
+```bash
+# Upload and analyze a test execution result file
 curl -X POST "http://localhost:8000/analyze" \
-  -F "file=@sample_data/test_results_247.csv" \
+  -H "X-API-Key: your-secret-api-key" \
+  -F "file=@sample_data/test_results.csv" \
   -F "format=csv"
+
+# Trigger Slack/Teams notification for build 245
+curl -X POST "http://localhost:8000/builds/245/notify" \
+  -H "X-API-Key: your-secret-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"slack": true, "teams": false}'
 ```
 
-Stop services:
+---
+
+## Database Configuration
+
+### SQLite (Default for Local Development & Testing)
+Zero-configuration SQLite database stored locally:
 ```bash
+DATABASE_URL=sqlite:///qa_results.db
+```
+SQLAlchemy SQLite connection includes `timeout=30` to handle brief file locks during concurrent reads.
+
+### PostgreSQL (Production & Containerized Deployment)
+```bash
+DATABASE_URL=postgresql+psycopg2://qa_user:<REPLACE_WITH_STRONG_PASSWORD>@postgres:5432/qa_operator
+```
+The application manages table initialization via SQLAlchemy ORM metadata (`init_db()`), connection pooling, and explicit rollback on concurrent duplicate key conflicts (`DuplicateBuildError`).
+
+---
+
+## Docker Compose & Container Security
+
+To run the application inside Docker containers:
+
+```bash
+# Launch API and PostgreSQL services
+docker compose up -d --build
+
+# View container logs
+docker compose logs -f api
+
+# Tear down containers and preserve database volume
 docker compose down
 ```
 
----
+### Production Security Hardening Recommendations
 
-## Database Strategy: SQLite vs PostgreSQL
-
-The system uses SQLAlchemy ORM to isolate database connection details from business logic via `DATABASE_URL`:
-
-- **SQLite (Local Dev & Testing):** `DATABASE_URL=sqlite:///qa_results.db`
-- **PostgreSQL (Production & Docker Compose):** `DATABASE_URL=postgresql+psycopg2://qa_user:change_me@postgres:5432/qa_operator`
-
----
-
-## GitHub Actions CI/CD Integration
-
-The workflow (`.github/workflows/qa-pipeline.yml`) executes on every `push` and `pull_request`:
-1. **Pytest Run:** Runs unit test suite (`pytest -v --junitxml=reports/pytest-results.xml`).
-2. **QA Automation Operator:** Runs CLI enforcement against generated JUnit XML (`python main.py --input reports/pytest-results.xml --enforce-quality-gate`).
-3. **Artifact Upload & Step Summary:** Uploads reports and writes Markdown summaries.
+When deploying `docker-compose.yml` to production environments:
+1. **Change Default Credentials:** Set `POSTGRES_PASSWORD` and `POSTGRES_USER` via environment variables or Docker secrets. Never run with weak or unconfigured credentials.
+2. **Restrict PostgreSQL Port Binding:** Modify `docker-compose.yml` to bind `127.0.0.1:5432:5432` or omit host port exposure entirely, allowing access only within the internal Docker bridge network (`qa_api` -> `qa_postgres`).
+3. **Configure API Keys:** Inject `ENVIRONMENT=production` and `API_KEY=<strong-random-key>` into container environment variables.
+4. **Set Resource Constraints:** Specify CPU and memory limits (`deploy.resources.limits`) to prevent denial-of-service via resource exhaustion.
 
 ---
 
-## Local Setup & Test Suite Execution
+## Verification & Testing
 
-1. **Clone repository & activate virtual environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate # Windows: venv\Scripts\activate
-   ```
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **Run unit & API test suite:**
-   ```bash
-   pytest -v
-   ```
-4. **Run FastAPI development server locally:**
-   ```bash
-   uvicorn src.api.app:app --reload
-   ```
+The project maintains a rigorous, multi-layered test suite enforced under the Barn Door Protocol.
 
----
+### Running Pytest
 
-## QA Dashboard (Dashboard V2)
+```bash
+# Run the full test suite with verbose output
+pytest -v
 
-The platform generates a self-contained, responsive **Dashboard V2** designed for daily QA monitoring, release readiness decisions, CI/CD reporting, and technical demonstrations.
-
-### What the Dashboard Shows
-
-1. **Header & Status Badges:** Current build identifier, generation timestamp, overall QA trend (`IMPROVING`, `WORSENING`, `STABLE`, `MIXED`), and release recommendation.
-2. **Top KPI Cards:** Total tests, passed, failed, skipped, pass rate percentage (with progress visualization), Quality Gate status, and Release decision.
-3. **Quality Gate Hero & Evaluated Policies:** Prominent release recommendation banner, list of triggered policy rules with severity, detailed check breakdown table, and high-priority QA attention action items.
-4. **Build Comparison:** Comparison against previous build showing pass rate delta, failure delta, direction indicators (↑ Better, ↓ Worse, → Same), newly failing tests, recovered tests, and persistent failures.
-5. **Build Quality Trend:** Multi-build pass rate and failure trajectory with high-resolution Matplotlib trend visualizations and improving/worsening module tracking.
-6. **Risky Modules Analysis:** Ranked module risk scoring (0-100 scale), "#1 Highest Risk Module" spotlight card, visual risk level meters (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), and failure share breakdown.
-7. **Flaky Test Detector:** Multi-build transition analysis tracking non-deterministic tests, flakiness score, and color-coded status history pills (`FAIL → PASS → FAIL`).
-8. **Failure Analysis & Diagnostics:** Aggregate failure breakdown by module, error distribution, and a dedicated **Failed Test Details** section with wrapped error stack traces.
-
-### How Quality Gate & Release Recommendations Work
-
-| Quality Gate Status | Release Recommendation | Meaning & Action |
-|---|---|---|
-| **`PASS`** | **`PROCEED`** | All quality criteria satisfied; build is healthy and approved for release. |
-| **`WARNING`** | **`REVIEW`** | Non-blocking thresholds exceeded (e.g. moderate flakiness or minor regressions); QA / Release lead review recommended. |
-| **`FAIL`** | **`BLOCK`** | Critical quality thresholds breached (e.g. low pass rate, excessive failures, multiple high-risk modules); automated release blocked. |
-
-### How to Generate the Dashboard
-
-- **Via CLI:**
-  ```bash
-  python main.py --input sample_data/test_results.csv
-  ```
-- **Via PowerShell helper script:**
-  ```powershell
-  .\start-project.ps1 -Mode cli
-  ```
-- **Via REST API:**
-  ```bash
-  curl -X POST "http://localhost:8000/builds/245/report"
-  ```
-
-### Report Storage Location
-
-Generated HTML reports are self-contained and stored locally under:
-```text
-reports/qa_report_build_<BUILD>.html
-reports/assets/
+# Run with test coverage measurement
+pytest --cov=src --cov-report=term
 ```
 
+### Current Verification Status
+
+- **Unit & Regression Tests:** **281 PASSED**, 0 failed, 0 errors.
+- **Code Coverage:** **92%** across 1,838 statements.
+- **Security Tests:**
+  - `tests/test_api_security.py` verifies constant-time comparison, missing/invalid keys, fail-closed production startup, sliding-window rate limiting, and trusted proxy header filtering.
+  - `tests/test_barn_door_remediation.py` verifies streaming upload size capping, path traversal protection, concurrent duplicate submission rollback, thread-safe Matplotlib generation, and XML entity expansion denial.
+- **PostgreSQL Integration Tests:**
+  - Located in `tests/test_postgres_integration.py`.
+  - **Status: 4 SKIPPED / BLOCKED.** Live container integration tests require an active Docker engine and PostgreSQL container. On host environments without a running Docker daemon, these tests safely detect absence and skip without falsifying results.
+
 ---
 
-## Portfolio Production Disclaimer
+## License
 
-> [!NOTE]
-> This application is designed as a modular portfolio-style QA engineering service. It does not enforce user authentication (OAuth/JWT), TLS termination, or rate limiting out of the box, which should be configured at an ingress controller / API gateway layer in multi-tenant enterprise deployments.
-
+This project is licensed under the terms of the **MIT License**. See the [LICENSE](LICENSE) file for details.

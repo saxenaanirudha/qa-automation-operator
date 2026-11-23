@@ -10,7 +10,14 @@ from src.api.routes import health, builds, analysis, analyze
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager for database initialization on startup."""
+    """Lifespan context manager for startup validation and database initialization."""
+    env = os.getenv("ENVIRONMENT", os.getenv("ENV", "development")).strip().lower()
+    if env in ("production", "prod"):
+        api_key = os.getenv("API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError(
+                "FATAL: Production mode requires API_KEY environment variable to be configured. Refusing to start."
+            )
     init_db()
     yield
 

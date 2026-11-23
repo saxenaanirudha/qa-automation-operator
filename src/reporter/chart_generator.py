@@ -11,12 +11,15 @@ All functions handle missing/insufficient data gracefully by returning None.
 """
 
 import os
+import threading
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")  # Non-interactive headless backend
 import matplotlib.pyplot as plt
+
+_CHART_LOCK = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -31,6 +34,13 @@ NEUTRAL_COLOR = "#64748b"     # Slate Gray
 BG_COLOR = "#ffffff"          # White
 GRID_COLOR = "#f1f5f9"        # Very light slate grid
 BORDER_COLOR = "#e2e8f0"      # Subtle border
+
+
+def _with_lock(func):
+    def wrapper(*args, **kwargs):
+        with _CHART_LOCK:
+            return func(*args, **kwargs)
+    return wrapper
 
 
 def _setup_figure(width: float = 6.0, height: float = 3.5):
@@ -49,6 +59,7 @@ def _setup_figure(width: float = 6.0, height: float = 3.5):
 # Public Chart Generators
 # ---------------------------------------------------------------------------
 
+@_with_lock
 def generate_pass_rate_chart(
     pass_rate_history: List[float],
     builds: List[int],
@@ -116,6 +127,7 @@ def generate_pass_rate_chart(
         return None
 
 
+@_with_lock
 def generate_failure_trend_chart(
     failure_history: List[int],
     builds: List[int],
@@ -184,6 +196,7 @@ def generate_failure_trend_chart(
         return None
 
 
+@_with_lock
 def generate_module_failure_chart(
     failures_by_module: Dict[str, int],
     output_path: str,
@@ -247,6 +260,7 @@ def generate_module_failure_chart(
         return None
 
 
+@_with_lock
 def generate_risk_chart(
     modules_report: Dict[str, Dict[str, Any]],
     output_path: str,

@@ -1,12 +1,14 @@
 import os
 import shutil
 import tempfile
+import uuid
 from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_db_session
 from src.api.schemas import AnalyzeResponse, AnalyzeSummary, RiskModuleSummary
+from src.api.security import verify_api_key, check_rate_limit
 from src.services.qa_service import analyze_and_store_results
 from src.database.repository import DuplicateBuildError
 
@@ -16,7 +18,11 @@ router = APIRouter(tags=["Analyze"])
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 
 
-@router.post("/analyze", response_model=AnalyzeResponse)
+@router.post(
+    "/analyze",
+    response_model=AnalyzeResponse,
+    dependencies=[Depends(verify_api_key), Depends(check_rate_limit)],
+)
 def analyze_uploaded_file(
     file: UploadFile = File(...),
     build_number: Optional[int] = Form(None),
@@ -42,20 +48,26 @@ def analyze_uploaded_file(
             detail="Unsupported file format. Please upload a .csv or .xml test results file.",
         )
 
-    # Save to safe temporary file
+    # Save to safe temporary file using server-generated filename
+    safe_filename = f"upload_{uuid.uuid4().hex}{ext if ext in ['.csv', '.xml'] else ''}"
     temp_dir = tempfile.mkdtemp(prefix="qa_upload_")
-    temp_path = os.path.join(temp_dir, file.filename)
+    temp_path = os.path.join(temp_dir, safe_filename)
 
     try:
-        content = file.file.read()
-        if len(content) > MAX_FILE_SIZE_BYTES:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File size exceeds maximum limit of {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB.",
-            )
-
+        total_size = 0
+        chunk_size = 64 * 1024
         with open(temp_path, "wb") as f:
-            f.write(content)
+            while True:
+                chunk = file.file.read(chunk_size)
+                if not chunk:
+                    break
+                total_size += len(chunk)
+                if total_size > MAX_FILE_SIZE_BYTES:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"File size exceeds maximum limit of {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB.",
+                    )
+                f.write(chunk)
 
         res = analyze_and_store_results(
             file_path=temp_path,

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_db_session
+from src.api.security import verify_api_key, check_rate_limit
 from src.api.schemas import (
     BuildSummaryResponse,
     TestResultResponse,
@@ -241,7 +242,10 @@ def get_build_quality_gate(
     return qg
 
 
-@router.post("/{build_number}/report")
+@router.post(
+    "/{build_number}/report",
+    dependencies=[Depends(verify_api_key), Depends(check_rate_limit)],
+)
 def generate_build_report(
     build_number: int, session: Session = Depends(get_db_session)
 ) -> Dict[str, Any]:
@@ -293,7 +297,11 @@ def generate_build_report(
     }
 
 
-@router.post("/{build_number}/notify", response_model=NotificationResponse)
+@router.post(
+    "/{build_number}/notify",
+    response_model=NotificationResponse,
+    dependencies=[Depends(verify_api_key), Depends(check_rate_limit)],
+)
 def dispatch_build_notifications(
     build_number: int,
     req: NotificationRequest,
@@ -354,7 +362,11 @@ def dispatch_build_notifications(
         report_path=f"reports/qa_report_build_{build_number}.html",
     )
 
-    res = send_qa_notifications(payload)
+    res = send_qa_notifications(
+        payload,
+        slack_enabled=req.slack,
+        teams_enabled=req.teams,
+    )
     return NotificationResponse(
         build=build_number,
         slack=res.get("slack", {}),

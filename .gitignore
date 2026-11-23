@@ -5,9 +5,13 @@ __pycache__/
 
 # Virtual environments
 venv/
+.venv/
 env/
 ENV/
 .env
+.env.*
+!.env.example
+*.log
 
 # Pytest cache
 .pytest_cache/
@@ -22,7 +26,8 @@ htmlcov/
 # Generated reports and data
 reports/*
 !reports/.gitkeep
-
+sample_data/*
+!sample_data/.gitkeep
 
 # Local database
 qa_results.db

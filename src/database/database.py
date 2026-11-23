@@ -18,7 +18,7 @@ def is_sqlite_database(url: str) -> bool:
 engine_kwargs = {"pool_pre_ping": True}
 
 if is_sqlite_database(DATABASE_URL):
-    engine_kwargs["connect_args"] = {"check_same_thread": False}
+    engine_kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)
 

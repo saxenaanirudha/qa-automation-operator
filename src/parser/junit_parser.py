@@ -182,6 +182,12 @@ def parse_junit_xml(
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"JUnit XML file not found: {file_path}")
 
+    # Security check: disallow entity expansion / DTD entity injection
+    with open(file_path, "rb") as f_check:
+        sample = f_check.read()
+        if b"<!ENTITY" in sample.upper():
+            raise ValueError("Security violation: XML entity declarations (XXE/entity expansion) are disallowed.")
+
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()

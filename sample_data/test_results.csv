@@ -1,9 +1,0 @@
-test_name,module,status,duration,error,build
-test_login_valid,Login,PASS,1.2,,245
-test_login_invalid,Login,PASS,1.0,,245
-test_add_cart,Cart,PASS,2.1,,245
-test_checkout,Checkout,FAIL,3.5,TimeoutException,245
-test_payment_card,Payment,FAIL,4.2,Payment API Error,245
-test_payment_upi,Payment,FAIL,4.8,TimeoutException,245
-test_order,Orders,PASS,2.0,,245
-test_profile_update,Profile,SKIP,0.0,Test skipped,245

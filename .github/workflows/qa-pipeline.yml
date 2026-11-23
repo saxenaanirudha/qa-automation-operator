@@ -40,6 +40,8 @@ jobs:
         id: qa_operator
         continue-on-error: true
         env:
+          ENVIRONMENT: "development"
+          API_KEY: ${{ secrets.API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
           REPORT_BASE_URL: ${{ secrets.REPORT_BASE_URL }}
