@@ -276,7 +276,7 @@ def generate_build_report(
     if build_number:
         try:
             comparison = compare_with_previous_build(build_number, session=session)
-        except Exception:
+        except NoPreviousBuildError:
             comparison = None
     trend = analyze_trends(session=session) if len(get_all_builds(session=session)) >= 3 else None
     risk = analyze_risk(build_number, session=session)

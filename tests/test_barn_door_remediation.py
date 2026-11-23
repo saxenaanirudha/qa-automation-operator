@@ -292,3 +292,38 @@ def test_generate_report_without_preceding_build_succeeds():
     assert "report_path" in data
 
 
+def test_generate_report_unexpected_error_is_not_suppressed(monkeypatch):
+    """
+    Regression Test: If compare_with_previous_build raises an unexpected database
+    or application exception (other than NoPreviousBuildError), generate_build_report
+    must NOT silently suppress it.
+    """
+    import src.api.routes.builds as builds_module
+    from src.database.database import get_session
+    import time
+    import pandas as pd
+
+    test_build = int(time.time_ns() // 1000) % 900000000 + 600000000
+    session = get_session()
+    summary = {
+        "build": test_build,
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "failure_rate": 0.0,
+    }
+    df = pd.DataFrame([{"test_name": "t1", "module": "M", "status": "PASS", "duration": 0.1, "error": None, "build": test_build}])
+    save_build_result(summary, df, session=session)
+
+    def mock_broken_comparison(b_num, session=None):
+        raise RuntimeError("Fatal unexpected database corruption")
+
+    monkeypatch.setattr(builds_module, "compare_with_previous_build", mock_broken_comparison)
+
+    with pytest.raises(RuntimeError, match="Fatal unexpected database corruption"):
+        builds_module.generate_build_report(build_number=test_build, session=session)
+
+
+
