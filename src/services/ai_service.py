@@ -18,6 +18,7 @@ Key Design & Security Principles:
 import os
 import re
 import json
+import math
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
@@ -28,11 +29,11 @@ from pydantic import BaseModel, Field, ValidationError
 logger = logging.getLogger(__name__)
 
 # Default verified Gemini Flash model
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 GEMINI_API_ENDPOINT_TEMPLATE = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
-REQUEST_TIMEOUT_SECONDS = 8.0
+DEFAULT_GEMINI_TIMEOUT_SECONDS = 30.0
 MAX_FAILED_TESTS_IN_PROMPT = 10
 MAX_ERROR_SNIPPET_LENGTH = 500
 
@@ -70,8 +71,34 @@ def get_gemini_api_key() -> str:
 
 
 def get_gemini_model() -> str:
-    """Retrieves configured Gemini model name, defaulting to verified gemini-2.5-flash."""
+    """Retrieves configured Gemini model name, defaulting to verified gemini-3.8-flash."""
     return os.getenv("GEMINI_MODEL", "").strip() or DEFAULT_GEMINI_MODEL
+
+
+def get_gemini_timeout_seconds() -> float:
+    """
+    Retrieves configured timeout for Gemini API calls in seconds.
+    Defaults to 30.0 seconds. Defensively falls back to 30.0 if the
+    environment variable is non-numeric, zero, negative, or not finite.
+    """
+    raw_val = os.getenv("GEMINI_TIMEOUT_SECONDS", "30").strip()
+    try:
+        val = float(raw_val)
+        if math.isnan(val) or math.isinf(val) or val <= 0:
+            logger.warning(
+                "Invalid GEMINI_TIMEOUT_SECONDS '%s'; falling back to default %.1fs.",
+                raw_val,
+                DEFAULT_GEMINI_TIMEOUT_SECONDS,
+            )
+            return DEFAULT_GEMINI_TIMEOUT_SECONDS
+        return val
+    except (ValueError, TypeError):
+        logger.warning(
+            "Non-numeric GEMINI_TIMEOUT_SECONDS '%s'; falling back to default %.1fs.",
+            raw_val,
+            DEFAULT_GEMINI_TIMEOUT_SECONDS,
+        )
+        return DEFAULT_GEMINI_TIMEOUT_SECONDS
 
 
 # ==============================================================================
@@ -199,7 +226,7 @@ def generate_ai_insights(
     trend_analysis: Optional[Dict[str, Any]] = None,
     api_key: Optional[str] = None,
     model: Optional[str] = None,
-    timeout: float = REQUEST_TIMEOUT_SECONDS,
+    timeout: Optional[float] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Main service function: generates advisory AI insights via official Gemini REST API.
@@ -218,6 +245,17 @@ def generate_ai_insights(
         return None
 
     resolved_model = model or get_gemini_model()
+    resolved_timeout = (
+        timeout
+        if (
+            timeout is not None
+            and isinstance(timeout, (int, float))
+            and not math.isnan(timeout)
+            and not math.isinf(timeout)
+            and timeout > 0
+        )
+        else get_gemini_timeout_seconds()
+    )
 
     # Extract actual failed tests from failure_analysis or summary dataframe
     failed_tests: List[Dict[str, Any]] = []
@@ -260,7 +298,7 @@ def generate_ai_insights(
     }
 
     try:
-        response = requests.post(endpoint, headers=headers, json=payload, timeout=timeout)
+        response = requests.post(endpoint, headers=headers, json=payload, timeout=resolved_timeout)
         if response.status_code != 200:
             logger.warning(
                 "Gemini API returned HTTP status %d: %s",
@@ -305,7 +343,7 @@ def generate_ai_insights(
         }
 
     except requests.exceptions.Timeout:
-        logger.warning("Gemini API request timed out after %.1f seconds.", timeout)
+        logger.warning("Gemini API request timed out after %.1f seconds.", resolved_timeout)
         return None
     except requests.exceptions.RequestException as req_err:
         logger.warning("Gemini API network request error: %s", str(req_err))

@@ -138,6 +138,10 @@ cp .env.example .env
 | `SLACK_WEBHOOK_URL`  | *(empty)* | Optional Incoming Webhook URL for Slack alerts. |
 | `TEAMS_WEBHOOK_URL`  | *(empty)* | Optional Incoming Webhook URL for Teams alerts. |
 | `REPORT_BASE_URL`    | *(empty)* | Optional base URL prepended to report links in webhooks. |
+| `AI_ENABLED`         | `false`   | Enables optional Generative AI test analysis and recommendations. |
+| `GEMINI_API_KEY`     | *(empty)* | Google Gemini API key (transmitted strictly via `x-goog-api-key` header). |
+| `GEMINI_MODEL`       | `gemini-3.8-flash` | Configured Gemini model identifier. |
+| `GEMINI_TIMEOUT_SECONDS` | `30`  | Request timeout in seconds (defensive fallback to 30.0s). |
 
 ---
 
@@ -272,6 +276,39 @@ When deploying `docker-compose.yml` to production environments:
 
 ---
 
+## Generative AI Integration (Barn Door Protocol)
+
+QA Automation Operator includes an optional, security-hardened Generative AI service (`src.services.ai_service`) powered by the official Google Gemini REST API.
+
+### Core Capabilities
+1. **Executive Test Result Summary:** High-level executive synthesis of build health, stability, and pass rates.
+2. **Probable Root Cause Analysis:** Heuristic diagnostic analysis for failed tests, mapping error traces to potential defects and remediation steps.
+3. **Recommended Test Scenarios:** Proactive boundary and regression scenario suggestions tailored to high-risk modules.
+
+### Hardened Architecture & Security Controls
+- **Default Disabled & Fail-Safe Fallback:** Disabled by default (`AI_ENABLED=false`). Any API error, timeout, or invalid response gracefully returns `None` without impacting core reporting or operations.
+- **Strict Decoupling from Quality Gates:** AI insights are **strictly advisory**. Deterministic Quality Gate evaluations (`PASS / PROCEED`, `WARNING / REVIEW`, `FAIL / BLOCK`) are computed independently and cannot be altered or overridden by AI output.
+- **Anti-Hallucination Filtering:** If a build has 0 failed tests, the service strictly suppresses and drops any hallucinated root causes. Model-generated root causes referencing non-existent test names are dropped.
+- **Credential & PII Redaction:** Regex-based pre-sanitization scrubs database URLs, bearer tokens, passwords, API keys, email addresses, credit cards, SSNs, and private IPs before dispatching prompts.
+- **Prompt Injection Containment:** Untrusted diagnostic telemetry and stack traces are strictly isolated within `<diagnostic_telemetry>` containment tags.
+- **Credential Protection:** The Gemini API key is transmitted exclusively via the `x-goog-api-key` HTTP header—never in query strings, request bodies, or log entries.
+- **Configurable Timeout:** Configurable via `GEMINI_TIMEOUT_SECONDS` (default: `30` seconds). Defensively handles non-numeric or invalid inputs. Note that 30 seconds is the default configured client timeout, not a guarantee of completion.
+- **Zero Automatic Retries:** Failed requests are never retried automatically by the HTTP client, eliminating unexpected cost or quota exhaustion.
+
+### Verification Script
+A dedicated verification module is provided to validate the integration:
+```bash
+python -m scripts.verify_live_genai
+```
+- Executes a maximum of 2 requests (Scenario A: Successful Build, Scenario B: Synthetic Failed Build).
+- Halts execution immediately if Scenario A fails without attempting Scenario B.
+- Validates model responses without leaking credentials.
+
+### Result 19 / 20 Audit Disclosure
+During live verification in Result 19, the legacy `gemini-2.5-flash` model returned HTTP 404 as it is no longer provisioned for new users. The official API recommended `gemini-3.8-flash`. Model metadata verification confirmed `gemini-3.8-flash` availability. However, a live request timed out after 8.0 seconds under peak API latency. In Result 20, the default model was formally updated to `gemini-3.8-flash` and the client timeout was made configurable (defaulting to 30.0s) with zero retries.
+
+---
+
 ## Verification & Testing
 
 The project maintains a rigorous, multi-layered test suite enforced under the Barn Door Protocol.
@@ -288,8 +325,14 @@ pytest --cov=src --cov-report=term
 
 ### Current Verification Status
 
-- **Unit & Regression Tests:** **281 PASSED**, 0 failed, 0 errors.
-- **Code Coverage:** **92%** across 1,838 statements.
+- **Unit & Regression Tests:** **300+ PASSED**, 0 failed, 0 errors.
+- **Code Coverage:** **92%+** across the complete codebase.
+- **AI Service Tests (`tests/test_ai_service.py`):**
+  - Verifies default disabled state, missing key handling, model configuration, and timeout defaults.
+  - Verifies defensive sanitization of invalid timeouts (`nan`, `inf`, negative, non-numeric).
+  - Verifies credential/PII redaction, prompt injection containment, and zero-failure anti-hallucination.
+  - Verifies graceful fallback on HTTP 404, HTTP 429, HTTP 500, and timeout exceptions with zero automatic retries.
+  - Verifies live verification script stop-on-failure behavior and HTML auto-escaping of AI content.
 - **Security Tests:**
   - `tests/test_api_security.py` verifies constant-time comparison, missing/invalid keys, fail-closed production startup, sliding-window rate limiting, and trusted proxy header filtering.
   - `tests/test_barn_door_remediation.py` verifies streaming upload size capping, path traversal protection, concurrent duplicate submission rollback, thread-safe Matplotlib generation, and XML entity expansion denial.

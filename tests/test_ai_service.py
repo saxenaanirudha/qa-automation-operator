@@ -29,9 +29,11 @@ from src.services.ai_service import (
     is_ai_enabled,
     get_gemini_api_key,
     get_gemini_model,
+    get_gemini_timeout_seconds,
     redact_sensitive_data,
     build_ai_prompt,
     DEFAULT_GEMINI_MODEL,
+    DEFAULT_GEMINI_TIMEOUT_SECONDS,
     ProbableRootCause,
     AIInsightsResponse,
 )
@@ -112,10 +114,31 @@ def test_gemini_model_configuration(monkeypatch):
     """Verifies GEMINI_MODEL configuration and fallback to default supported model."""
     monkeypatch.delenv("GEMINI_MODEL", raising=False)
     assert get_gemini_model() == DEFAULT_GEMINI_MODEL
+    assert DEFAULT_GEMINI_MODEL == "gemini-3.8-flash"
     assert "1.5" not in get_gemini_model()
+    assert "2.5" not in get_gemini_model()
 
-    monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-flash-custom")
-    assert get_gemini_model() == "gemini-2.5-flash-custom"
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-custom-flash")
+    assert get_gemini_model() == "gemini-custom-flash"
+
+
+def test_gemini_timeout_configuration(monkeypatch):
+    """Verifies GEMINI_TIMEOUT_SECONDS configuration, defaults, and defensive sanitization."""
+    monkeypatch.delenv("GEMINI_TIMEOUT_SECONDS", raising=False)
+    assert get_gemini_timeout_seconds() == DEFAULT_GEMINI_TIMEOUT_SECONDS
+    assert get_gemini_timeout_seconds() == 30.0
+
+    # Valid numeric values
+    monkeypatch.setenv("GEMINI_TIMEOUT_SECONDS", "45")
+    assert get_gemini_timeout_seconds() == 45.0
+
+    monkeypatch.setenv("GEMINI_TIMEOUT_SECONDS", "12.5")
+    assert get_gemini_timeout_seconds() == 12.5
+
+    # Invalid / non-numeric / edge case values fall back safely to 30.0
+    for invalid_val in ["invalid", "-5", "0", "nan", "inf", "-inf", ""]:
+        monkeypatch.setenv("GEMINI_TIMEOUT_SECONDS", invalid_val)
+        assert get_gemini_timeout_seconds() == 30.0
 
 
 # ==============================================================================
@@ -358,13 +381,67 @@ def test_invalid_schema_response_handling(monkeypatch, sample_summary):
 
 
 def test_api_timeout_handling(monkeypatch, sample_summary):
-    """Verifies graceful None return on network timeout."""
+    """Verifies graceful None return on network timeout and verifies timeout passed."""
+    monkeypatch.setenv("AI_ENABLED", "true")
+    monkeypatch.setenv("GEMINI_API_KEY", "mock-test-key")
+    monkeypatch.setenv("GEMINI_TIMEOUT_SECONDS", "15.0")
+
+    with patch("requests.post", side_effect=requests.exceptions.Timeout("Request timed out")) as mock_post:
+        insights = generate_ai_insights(sample_summary)
+        assert insights is None
+        mock_post.assert_called_once()
+        _, kwargs = mock_post.call_args
+        assert kwargs["timeout"] == 15.0
+
+
+def test_http_404_not_found_handling(monkeypatch, sample_summary):
+    """Verifies handling of HTTP 404 (e.g. decommissioned model) from the Gemini endpoint."""
     monkeypatch.setenv("AI_ENABLED", "true")
     monkeypatch.setenv("GEMINI_API_KEY", "mock-test-key")
 
-    with patch("requests.post", side_effect=requests.exceptions.Timeout("Request timed out")):
+    mock_404 = MagicMock()
+    mock_404.status_code = 404
+    mock_404.text = "models/gemini-2.5-flash is not found for API version v1beta"
+    with patch("requests.post", return_value=mock_404) as mock_post:
         insights = generate_ai_insights(sample_summary)
         assert insights is None
+        mock_post.assert_called_once()
+
+
+def test_zero_automatic_retries(monkeypatch, sample_summary):
+    """Verifies that failed calls do not retry automatically (zero automatic retries)."""
+    monkeypatch.setenv("AI_ENABLED", "true")
+    monkeypatch.setenv("GEMINI_API_KEY", "mock-test-key")
+
+    # Failure case: timeout
+    with patch("requests.post", side_effect=requests.exceptions.Timeout("Timed out")) as mock_post:
+        assert generate_ai_insights(sample_summary) is None
+        assert mock_post.call_count == 1
+
+    # Failure case: HTTP 503 Service Unavailable
+    mock_503 = MagicMock()
+    mock_503.status_code = 503
+    mock_503.text = "Service Unavailable"
+    with patch("requests.post", return_value=mock_503) as mock_post:
+        assert generate_ai_insights(sample_summary) is None
+        assert mock_post.call_count == 1
+
+
+def test_verification_script_stops_on_scenario_a_failure(monkeypatch):
+    """Verifies that scripts.verify_live_genai stops immediately if Scenario A fails."""
+    monkeypatch.setenv("AI_ENABLED", "true")
+    monkeypatch.setenv("GEMINI_API_KEY", "mock-test-key")
+
+    from scripts import verify_live_genai
+
+    # Mock generate_ai_insights to return None on the first call (Scenario A)
+    with patch("scripts.verify_live_genai.generate_ai_insights", return_value=None) as mock_gen, \
+         pytest.raises(SystemExit) as exc_info:
+        verify_live_genai.main()
+
+    # Verify sys.exit(1) was executed and Scenario B was never attempted
+    assert exc_info.value.code == 1
+    assert mock_gen.call_count == 1
 
 
 def test_http_429_and_500_errors_handling(monkeypatch, sample_summary):
@@ -427,7 +504,7 @@ def test_dashboard_renders_with_ai_insights(tmp_path, sample_summary):
     save_build_result(sample_summary, sample_summary["data"])
     out_file = str(tmp_path / "test_ai_report.html")
     mock_ai_insights = {
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.8-flash",
         "generated_at": "2026-11-25T10:00:00Z",
         "summary": "Build passed with 80% pass rate. <script>alert('xss')</script>",
         "probable_root_causes": [
@@ -456,7 +533,7 @@ def test_dashboard_renders_with_ai_insights(tmp_path, sample_summary):
 
     # Section is present
     assert "AI-Powered Test Insights" in html
-    assert "gemini-2.5-flash" in html
+    assert "gemini-3.8-flash" in html
     assert "Executive Test Summary" in html
 
     # Strict HTML autoescaping check: raw tags must be escaped!
