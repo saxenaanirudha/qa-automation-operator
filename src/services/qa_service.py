@@ -15,6 +15,7 @@ from src.notifier.notification_builder import build_notification_payload
 from src.notifier.notifier_service import send_qa_notifications
 from src.database.database import init_db
 from src.database.repository import save_build_result, DuplicateBuildError, BuildNotFoundError
+from src.services.ai_service import generate_ai_insights, is_ai_enabled
 
 
 def parse_input_file(
@@ -94,7 +95,20 @@ def analyze_and_store_results(
     # 8. Flaky Test Detection
     flaky_analysis = detect_flaky_tests(session=session)
 
-    # 9. HTML Report Generation (Optional)
+    # 9. AI Insights (Optional, advisory only)
+    ai_insights = None
+    if is_ai_enabled():
+        try:
+            ai_insights = generate_ai_insights(
+                summary=summary,
+                failure_analysis=failure_analysis,
+                risk_analysis=risk_analysis,
+                trend_analysis=trend_analysis,
+            )
+        except Exception as exc:
+            print(f"Warning: Failed to generate AI insights: {exc}")
+
+    # 10. HTML Report Generation (Optional)
     report_path = None
     if generate_report:
         try:
@@ -107,11 +121,12 @@ def analyze_and_store_results(
                 risk_analysis=risk_analysis,
                 quality_gate=quality_gate,
                 flaky_analysis=flaky_analysis,
+                ai_insights=ai_insights,
             )
         except Exception as exc:
             print(f"Warning: Failed to generate HTML report: {exc}")
 
-    # 10. Notifications (Optional)
+    # 11. Notifications (Optional)
     notification_result = None
     if send_notifications:
         try:
@@ -138,6 +153,7 @@ def analyze_and_store_results(
         "risk_analysis": risk_analysis,
         "quality_gate": quality_gate,
         "flaky_analysis": flaky_analysis,
+        "ai_insights": ai_insights,
         "report_path": report_path,
         "notification_result": notification_result,
     }

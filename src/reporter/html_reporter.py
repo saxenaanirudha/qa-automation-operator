@@ -111,6 +111,7 @@ def generate_html_report(
     risk_analysis: Optional[Dict[str, Any]] = None,
     quality_gate: Optional[Dict[str, Any]] = None,
     flaky_analysis: Optional[Dict[str, Any]] = None,
+    ai_insights: Optional[Dict[str, Any]] = None,
     session: Optional[Session] = None,
 ) -> str:
     """
@@ -294,6 +295,7 @@ def generate_html_report(
         risk_analysis=risk_analysis,
         quality_gate=quality_gate,
         flaky_analysis=flaky_analysis,
+        ai_insights=ai_insights,
         attention_items=attention_items,
         charts=charts,
     )

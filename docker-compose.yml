@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-qa_operator}
       POSTGRES_USER: ${POSTGRES_USER:-qa_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be explicitly provided}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be explicitly provided}"
     ports:
       # Bound to localhost only to prevent public network exposure.
       # For production with internal-only API access, this port mapping can be removed.
@@ -26,7 +26,7 @@ services:
     container_name: qa_api
     restart: always
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-qa_user}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be provided}@postgres:5432/${POSTGRES_DB:-qa_operator}
+      DATABASE_URL: "postgresql+psycopg2://${POSTGRES_USER:-qa_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be provided}@postgres:5432/${POSTGRES_DB:-qa_operator}"
       ENVIRONMENT: ${ENVIRONMENT:-development}
       API_KEY: ${API_KEY:-}
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
