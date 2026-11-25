@@ -29,6 +29,9 @@ services:
       DATABASE_URL: "postgresql+psycopg2://${POSTGRES_USER:-qa_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be provided}@postgres:5432/${POSTGRES_DB:-qa_operator}"
       ENVIRONMENT: ${ENVIRONMENT:-development}
       API_KEY: ${API_KEY:-}
+      AI_ENABLED: ${AI_ENABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
       TEAMS_WEBHOOK_URL: ${TEAMS_WEBHOOK_URL:-}
       REPORT_BASE_URL: ${REPORT_BASE_URL:-}
