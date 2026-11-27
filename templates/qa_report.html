@@ -1064,7 +1064,7 @@
 
       {% if comparison %}
         <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px; font-weight: 600;">
-          Comparing <strong>Build {{ comparison.previous_build }}</strong> &rarr; <strong>Build {{ comparison.current_build }}</strong>
+          Comparing <strong>Build {{ comparison.previous_build }}</strong> → <strong>Build {{ comparison.current_build }}</strong>
         </p>
 
         <div class="comparison-grid">
@@ -1072,13 +1072,13 @@
             <div class="card-title">Pass Rate</div>
             <div class="card-metric-flow">
               <span>{{ comparison.summary.pass_rate.previous }}%</span>
-              <span style="color: var(--text-muted);">&rarr;</span>
+              <span style="color: var(--text-muted);">→</span>
               <span>{{ comparison.summary.pass_rate.current }}%</span>
             </div>
             <div>
               {% set pr_diff = comparison.summary.pass_rate.difference %}
               <span class="comparison-delta {% if pr_diff > 0 %}delta-positive{% elif pr_diff < 0 %}delta-negative{% else %}delta-neutral{% endif %}">
-                {% if pr_diff > 0 %}&uarr; Better (+{{ pr_diff }}%){% elif pr_diff < 0 %}&darr; Worse ({{ pr_diff }}%){% else %}&rarr; Same (0%){% endif %}
+                {% if pr_diff > 0 %}&uarr; Better (+{{ pr_diff }} pp){% elif pr_diff < 0 %}&darr; Worse ({{ pr_diff }} pp){% else %}→ Same (0 pp){% endif %}
               </span>
             </div>
           </div>
@@ -1087,13 +1087,13 @@
             <div class="card-title">Failures</div>
             <div class="card-metric-flow">
               <span>{{ comparison.summary.failed.previous }}</span>
-              <span style="color: var(--text-muted);">&rarr;</span>
+              <span style="color: var(--text-muted);">→</span>
               <span>{{ comparison.summary.failed.current }}</span>
             </div>
             <div>
               {% set fail_diff = comparison.summary.failed.difference %}
               <span class="comparison-delta {% if fail_diff < 0 %}delta-positive{% elif fail_diff > 0 %}delta-negative{% else %}delta-neutral{% endif %}">
-                {% if fail_diff < 0 %}&uarr; Better ({{ fail_diff }}){% elif fail_diff > 0 %}&darr; Worse (+{{ fail_diff }}){% else %}&rarr; Same (0){% endif %}
+                {% if fail_diff < 0 %}&uarr; Better ({{ fail_diff }}){% elif fail_diff > 0 %}&darr; Worse (+{{ fail_diff }}){% else %}→ Same (0){% endif %}
               </span>
             </div>
           </div>
@@ -1102,7 +1102,7 @@
             <div class="card-title">Total Tests</div>
             <div class="card-metric-flow">
               <span>{{ comparison.summary.total_tests.previous if comparison.summary.total_tests is defined else comparison.summary.total.previous }}</span>
-              <span style="color: var(--text-muted);">&rarr;</span>
+              <span style="color: var(--text-muted);">→</span>
               <span>{{ comparison.summary.total_tests.current if comparison.summary.total_tests is defined else comparison.summary.total.current }}</span>
             </div>
             <div>
@@ -1112,6 +1112,17 @@
             </div>
           </div>
         </div>
+
+        {% if comparison.is_comparable is defined and not comparison.is_comparable %}
+          <div style="background-color: #fffbeb; border-left: 4px solid #d97706; padding: 10px 14px; border-radius: 4px; margin-bottom: 18px;">
+            <div style="font-size: 13px; font-weight: 700; color: #b45309; display: flex; align-items: center; gap: 6px;">
+              <span>⚠️ Population Comparability Limitation:</span>
+            </div>
+            <div style="font-size: 12.5px; color: #92400e; margin-top: 4px; line-height: 1.4;">
+              {{ comparison.comparability_note }}
+            </div>
+          </div>
+        {% endif %}
 
         <div class="layout-2col">
           <div class="info-pane">
@@ -1216,7 +1227,7 @@
 
       {% if trend_analysis %}
         <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px;">
-          Builds Analyzed: <strong>{{ trend_analysis.builds_analyzed | join(' &rarr; ') }}</strong>
+          Builds Analyzed: <strong>{{ trend_analysis.builds_analyzed | join(' → ') }}</strong>
         </p>
 
         <div class="layout-2col" style="margin-bottom: 16px;">
@@ -1226,7 +1237,7 @@
               <span class="badge badge-sm badge-{{ trend_analysis.pass_rate_trend|lower }}">{{ trend_analysis.pass_rate_trend }}</span>
             </div>
             <p style="font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
-              {{ trend_analysis.pass_rate_history | join('% &rarr; ') }}%
+              {{ trend_analysis.pass_rate_history | join('% → ') }}%
             </p>
             <p style="font-size: 13px; color: var(--text-secondary);">
               <strong>Improving Modules:</strong> {{ trend_analysis.improving_modules | join(', ') or 'None' }}
@@ -1239,7 +1250,7 @@
               <span class="badge badge-sm badge-{{ trend_analysis.failure_trend|lower }}">{{ trend_analysis.failure_trend }}</span>
             </div>
             <p style="font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
-              {{ trend_analysis.failure_history | join(' &rarr; ') }}
+              {{ trend_analysis.failure_history | join(' → ') }}
             </p>
             <p style="font-size: 13px; color: var(--text-secondary);">
               <strong>Worsening Modules:</strong> {{ trend_analysis.worsening_modules | join(', ') or 'None' }}
@@ -1275,7 +1286,7 @@
           <h2 class="section-title">
             <span>Risky Modules</span>
           </h2>
-          <div class="section-subtitle">Module Risk Analysis &amp; defect probability modeling (0-100 scale)</div>
+          <div class="section-subtitle">Module Risk Analysis &amp; heuristic module risk scoring (0-100 scale)</div>
         </div>
       </div>
 
@@ -1467,8 +1478,12 @@
         </div>
         <div class="comparison-card">
           <div class="card-title">Most Common Error</div>
-          <div class="kpi-value" style="font-size: 16px; word-break: break-word;">
-            {{ failure_analysis.most_common_error or 'None' }}
+          <div class="kpi-value" style="font-size: {% if failure_analysis.is_error_tie %}14px{% else %}16px{% endif %}; word-break: break-word;">
+            {% if failure_analysis.is_error_tie %}
+              {{ failure_analysis.most_common_error_display }}
+            {% else %}
+              {{ failure_analysis.most_common_error or 'None' }}
+            {% endif %}
           </div>
         </div>
       </div>

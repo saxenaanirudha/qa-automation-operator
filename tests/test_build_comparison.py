@@ -458,3 +458,30 @@ def test_duplicate_current_build_does_not_break_comparison(db_session):
     assert report["previous_build"] == 700
     assert report["current_build"] == 701
     assert report["overall_status"] == "BETTER"
+
+
+# ---------------------------------------------------------------------------
+# Test 25: Build population comparability evaluation
+# ---------------------------------------------------------------------------
+
+def test_population_comparability_identical_vs_different(db_session):
+    """
+    Evaluates that builds with identical test identities report IDENTICAL population status,
+    while builds with different populations report DIFFERENT and provide comparability notes.
+    """
+    # Identical populations (t1, t2 in both)
+    _seed_build(db_session, 800, [("t1", "M", "FAIL", "Err"), ("t2", "M", "PASS", None)])
+    _seed_build(db_session, 801, [("t1", "M", "PASS", None), ("t2", "M", "PASS", None)])
+
+    rep_identical = compare_builds(800, 801, session=db_session)
+    assert rep_identical["population_status"] == "IDENTICAL"
+    assert rep_identical["is_comparable"] is True
+    assert rep_identical["comparability_note"] is None
+
+    # Different populations (t3 added, t1 removed)
+    _seed_build(db_session, 802, [("t2", "M", "PASS", None), ("t3", "M", "PASS", None)])
+    rep_different = compare_builds(801, 802, session=db_session)
+    assert rep_different["population_status"] == "DIFFERENT"
+    assert rep_different["is_comparable"] is False
+    assert "Test populations differ" in rep_different["comparability_note"]
+    assert "Aggregate pass-rate difference reflects test suite population changes" in rep_different["comparability_note"]

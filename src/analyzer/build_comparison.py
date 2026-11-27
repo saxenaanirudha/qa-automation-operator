@@ -258,12 +258,40 @@ def compare_builds(
     modules    = _module_comparison(prev_results, curr_results)
     test_sets  = _test_set_analysis(prev_results, curr_results)
 
+    # Evaluate population identity comparability
+    prev_names = {tr.test_name for tr in prev_results}
+    curr_names = {tr.test_name for tr in curr_results}
+    common_names = prev_names & curr_names
+
+    if not prev_names or not curr_names:
+        population_status = "UNKNOWN"
+        is_comparable = False
+        comparability_note = "Cannot establish population equivalence because test results are unavailable for one or both builds."
+    elif prev_names == curr_names:
+        population_status = "IDENTICAL"
+        is_comparable = True
+        comparability_note = None
+    else:
+        population_status = "DIFFERENT"
+        is_comparable = False
+        added_cnt = len(test_sets["tests_added"])
+        removed_cnt = len(test_sets["tests_removed"])
+        comparability_note = (
+            f"Test populations differ (Build {previous_build_number}: {len(prev_names)} tests vs "
+            f"Build {current_build_number}: {len(curr_names)} tests; {added_cnt} added, {removed_cnt} removed; "
+            f"{len(common_names)} common). Aggregate pass-rate difference reflects test suite population changes "
+            f"rather than a like-for-like regression comparison."
+        )
+
     return {
         "previous_build": previous_build_number,
         "current_build":  current_build_number,
         "overall_status": status,
         "summary":        summary,
         "module_comparison": modules,
+        "population_status": population_status,
+        "is_comparable": is_comparable,
+        "comparability_note": comparability_note,
         **test_sets,
     }
 

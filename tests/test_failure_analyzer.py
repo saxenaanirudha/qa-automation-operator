@@ -78,3 +78,35 @@ def test_missing_error_values():
     assert result['total_failures'] == 3
     assert result['error_distribution'] == {'Unknown Error': 3}
     assert result['most_common_error'] == 'Unknown Error'
+
+
+def test_tied_most_common_errors():
+    """Verify tied most common error categories are detected and formatted deterministically."""
+    df = pd.DataFrame({
+        'test_name': ['t1', 't2', 't3', 't4'],
+        'module': ['ModA', 'ModA', 'ModB', 'ModB'],
+        'status': ['FAIL', 'FAIL', 'FAIL', 'FAIL'],
+        'error': ['TimeoutException', 'Payment API Error', 'TimeoutException', 'Payment API Error']
+    })
+    result = analyze_failures(df)
+    assert result['total_failures'] == 4
+    assert result['is_error_tie'] is True
+    # Alphabetical order for tied categories with equal count (2 each)
+    assert result['most_common_errors'] == ['Payment API Error', 'TimeoutException']
+    assert result['most_common_error'] == 'Payment API Error'
+    assert result['most_common_error_display'] == 'Payment API Error, TimeoutException (Tie)'
+
+
+def test_single_winner_most_common_error():
+    """Verify single dominant error category has is_error_tie=False and matches display."""
+    df = pd.DataFrame({
+        'test_name': ['t1', 't2', 't3'],
+        'module': ['ModA', 'ModA', 'ModB'],
+        'status': ['FAIL', 'FAIL', 'FAIL'],
+        'error': ['NetworkError', 'NetworkError', 'TimeoutError']
+    })
+    result = analyze_failures(df)
+    assert result['is_error_tie'] is False
+    assert result['most_common_errors'] == ['NetworkError']
+    assert result['most_common_error'] == 'NetworkError'
+    assert result['most_common_error_display'] == 'NetworkError'

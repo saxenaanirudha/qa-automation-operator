@@ -285,7 +285,9 @@ def generate_risk_chart(
 
     try:
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        fig, ax = _setup_figure(width=6.0, height=3.5)
+        # Dynamically scale chart height to prevent label overlap when module count is high
+        dynamic_height = max(3.5, 0.45 * len(modules_report) + 1.2)
+        fig, ax = _setup_figure(width=6.0, height=dynamic_height)
 
         # Sort modules by score ascending for horizontal bar chart (highest risk at top)
         sorted_modules = sorted(

@@ -1,37 +1,74 @@
 # QA Automation Operator
 
-A production-grade QA test operations and test analytics platform designed to ingest automated test execution results (CSV and JUnit XML), identify failures, detect flaky tests, apply configurable Quality Gates, calculate module risk scores, and generate comprehensive interactive visual dashboards. Exposes both a resilient CLI interface and a high-performance FastAPI REST API service supporting both SQLite and PostgreSQL storage.
+[![CI - Pytest](https://img.shields.io/badge/tests-307%20passed%20%7C%204%20skipped-success)](https://github.com/saxenaanirudha/qa-automation-operator)
+[![Coverage](https://img.shields.io/badge/coverage-92%25%20overall%20%7C%2089%25%20ai-blue)](https://github.com/saxenaanirudha/qa-automation-operator)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/fastapi-0.115%2B-009688)](https://fastapi.tiangolo.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+A modular QA test operations and test analytics platform designed to ingest automated test results (CSV and JUnit XML), detect regressions, calculate heuristic module risk, identify flaky tests, enforce configurable deterministic Quality Gates, and generate interactive visual dashboards.
+
+Exposes both a resilient CLI interface and an async FastAPI REST service supporting dual-engine persistence (local SQLite and production PostgreSQL). Includes an optional, security-hardened Generative AI preview integration designed to synthesize advisory insights without overriding deterministic release controls.
 
 ---
 
-## Key Features
+## Visual Dashboard Showcase
 
-- **Multi-Format Ingestion:** Ingests both standard CSV test results and standard JUnit XML (single suite, multi-suite, and nested suites) with automatic schema normalization.
-- **Security Hardening (Barn Door Protocol):**
-  - Constant-time `X-API-Key` authentication via `secrets.compare_digest`.
-  - Fail-closed production startup gate refusing to start if `API_KEY` is unconfigured.
-  - In-memory sliding-window rate limiting per client IP.
-  - Strict proxy header validation: `X-Forwarded-For` is ignored unless explicitly enabled from trusted proxies.
-  - XML external entity expansion (XXE / Billion Laughs) rejection.
-  - Streaming file upload size validation (enforced in 64 KB chunks up to 10 MB).
-  - Path traversal defense via server-generated UUID temporary files.
-- **Deep Test Analytics:**
-  - **Failure Diagnostics:** Root cause pattern grouping, error classification, and component failure clustering.
-  - **Build Comparison:** Automated regression tracking against the previous build (new failures, recovered tests, persistent issues).
-  - **Historical Trend Engine:** Multi-build pass/fail trajectory and module stability trends.
-  - **Flaky Test Detector:** Transition tracking (`PASS ↔ FAIL`) across historical runs to identify non-deterministic tests.
-  - **Risk Scoring:** Algorithmic module risk assessment (0–100 score) categorizing components into `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL` risk.
-- **Automated Quality Gates:** Enforces automated release readiness decisions (`PASS / PROCEED`, `WARNING / REVIEW`, `FAIL / BLOCK`) based on configurable failure rate, risk score, and regression thresholds.
-- **Dual Execution Interfaces:**
-  - **CLI (`main.py`):** Standalone zero-dependency command-line runner for local terminal use and CI/CD pipelines.
-  - **FastAPI Service (`src.api.app`):** Async REST API with OpenAPI/Swagger documentation, background reporting, and webhook dispatching.
-- **Dual Database Architecture:** Zero-configuration local SQLite for rapid testing and production-ready PostgreSQL with SQLAlchemy connection pooling and duplicate submission conflict handling.
-- **Interactive Visual Reporting:** Generates standalone, self-contained HTML reports with embedded CSS, base64 Matplotlib trend charts, and modal failure details.
-- **Notification Engine:** Dispatches formatted quality summaries and gate decisions to Slack and Microsoft Teams webhooks.
+The platform generates self-contained, interactive HTML reports featuring visual KPI tiles, automated Quality Gate evaluations, failure diagnostics, dynamic risk distribution charts, and optional AI-assisted summaries.
+
+### 1. Executive Quality & Release Readiness Dashboard
+*Demonstrates a genuine historical build report (Build 10001) evaluating 287 automated tests with 100% pass rate, zero failures, and automated Quality Gate PASS/PROCEED authorization.*
+
+![Executive QA Dashboard](docs/screenshots/01_qa_executive_dashboard.png)
+
+> **Data Provenance:** The executive dashboard above reflects a genuine historical test run of **287 automated tests** (Build 10001). This build metric is distinct from the project's internal **311-test regression test suite**.
 
 ---
 
-## Architecture
+### 2. Failure Diagnostics & Error Distribution
+*Demonstrates genuine diagnostic failure clustering (Build 247) with 8 active failures across Payment and Checkout services, deterministic tied-category error handling (`Payment API Error, TimeoutException (Tie)`), and comparative module failure charting.*
+
+![Failure Analysis](docs/screenshots/04_failure_analysis.png)
+
+---
+
+### 3. Optional Gen AI Preview: Advisory Build Insights
+*Illustrative previews rendered under the optional Gen AI preview integration. The UI delivers high-level advisory summaries, hypothetical root causes, and recommended regression scenarios while maintaining strict truth-in-documentation disclosure banners.*
+
+| Successful Build Preview (Build 11001 — 100% Pass) | Failed Build Preview (Build 12001 — 80% Pass / 2 Failures) |
+| :---: | :---: |
+| ![AI Success Preview](docs/screenshots/05_mock_ai_successful_build_preview.png) | ![AI Failure Preview](docs/screenshots/06_mock_ai_failed_build_preview.png) |
+
+> **Disclosure:** Previews above are rendered using synthetic 10-test fixtures and mocked responses. The configured model (`gemini-3.1-flash-lite`) is indicated for configuration reference only. No live external API calls were made to render these demonstration assets.
+
+---
+
+### 4. Supplementary Operations Dashboards
+
+<details>
+<summary><strong>View Quality Gate Decision & Evaluated Policy Checks</strong></summary>
+
+![Quality Gate Decision](docs/screenshots/02_quality_gate_decision.png)
+*Detailed policy check evaluation validating pass rate, failure count, high-risk modules, newly failing tests, trend trajectory, and build comparison metrics.*
+</details>
+
+<details>
+<summary><strong>View Heuristic Module Risk Analysis (Dynamic Sizing)</strong></summary>
+
+![Module Risk Analysis](docs/screenshots/03_module_risk_analysis.png)
+*Ranks application components by defect risk (0–100 scale) based on current failures, historical trend, persistent defect count, and failure share. Features dynamic chart height scaling to maintain readability across large module populations.*
+</details>
+
+<details>
+<summary><strong>View Flaky Test Transition Detector (Synthetic Demonstration)</strong></summary>
+
+![Flaky Test Analysis](docs/screenshots/07_flaky_test_analysis.png)
+*Shows genuine transition tracking engine (`PASS ↔ FAIL`) across consecutive builds (Build 13001–13003) detecting intermittent instability and scoring flakiness.*
+</details>
+
+---
+
+## Core Capabilities & Architecture
 
 ```text
        Automation Framework / CI (GitHub Actions, Jenkins, Pytest)
@@ -57,9 +94,10 @@ A production-grade QA test operations and test analytics platform designed to in
          │ - Result Parsers (CSV & JUnit XML with XXE Guard) │
          │ - Failure Analysis & Stack Trace Normalizer       │
          │ - Historical Trend & Regression Engine            │
-         │ - Module Risk Scoring Engine                      │
+         │ - Heuristic Module Risk Scoring Engine            │
          │ - Flaky Test Transition Detector                  │
          │ - Quality Gate Policy Evaluator                   │
+         │ - Optional Gen AI Insights Service (Advisory)     │
          └─────────────────────────┬─────────────────────────┘
                                    ▼
                       Data Persistence Layer
@@ -76,31 +114,67 @@ A production-grade QA test operations and test analytics platform designed to in
       (Standalone Self-Contained)           (Slack & MS Teams Webhooks)
 ```
 
+### Key Functional Pillars
+- **Multi-Format Test Ingestion:** Normalizes both tabular CSV execution logs and standard JUnit XML (single-suite, multi-suite, and nested packages).
+- **Security Hardening (Barn Door Protocol):**
+  - Constant-time `X-API-Key` authentication via `secrets.compare_digest`.
+  - Fail-closed production startup refusing to serve unauthenticated traffic if `API_KEY` is missing in production mode.
+  - In-memory sliding-window rate limiting per client IP.
+  - Streaming file upload validation (enforced in 64 KB chunks up to 10 MB).
+  - XML External Entity (XXE) expansion prevention using defused XML parsing principles.
+  - Server-side UUID generation for temporary upload artifacts to eliminate path traversal.
+- **Deterministic Quality Gates:** Evaluates builds against configurable release policies, outputting an overall status (`PASS`, `WARNING`, `FAIL`) and actionable recommendation (`PROCEED`, `REVIEW`, `BLOCK`).
+- **Heuristic Module Risk Scoring:** Scores modules from 0 to 100 based on failure count, failure share, historical trend, and persistent regressions.
+- **Flaky Test Transition Detection:** Calculates flakiness percentages by identifying non-deterministic `PASS ↔ FAIL` switches across chronological build history.
+- **Dual Storage Support:** Works out-of-the-box with local SQLite (`qa_results.db`) and scales seamlessly to PostgreSQL with SQLAlchemy connection pooling.
+- **Automated Webhook Alerts:** Formats and dispatches structured build summaries and Quality Gate alerts to Slack and Microsoft Teams.
+
+---
+
+## Optional Gen AI Preview
+
+QA Automation Operator includes an optional Generative AI service (`src.services.ai_service`) built using Google Gemini API conventions (`gemini-3.8-flash` / `gemini-3.1-flash-lite`).
+
+### Three Advisory Capabilities
+1. **AI Test Result Summary:** High-level narrative summarizing pass rates, critical failure areas, and overall build health.
+2. **AI Probable Root Cause Analysis:** Hypothetical root cause explanations mapping error messages and failure traces to suspected technical issues.
+3. **AI Recommended Test Scenarios:** Proactive suggestions for regression scenarios, load tests, or boundary validations tailored to observed failures.
+
+### Architectural Safeguards & Disclosures
+- **Disabled by Default:** The integration is strictly opt-in (`AI_ENABLED=false`). When disabled or unconfigured, zero external API requests are made.
+- **Strict Advisory Decoupling:** AI insights are **strictly advisory**. Deterministic Quality Gate evaluations (`PASS / PROCEED`, `WARNING / REVIEW`, `FAIL / BLOCK`) are computed independently and cannot be altered or overridden by AI responses.
+- **Prompt Injection Mitigation & Data Sanitization:** Diagnostic stack traces are isolated within `<diagnostic_telemetry>` mitigation boundary tags, and regex filters automatically redact database credentials, passwords, bearer tokens, API keys, and IP addresses before prompts are constructed.
+- **Zero Automatic Retries & Configurable Timeout:** To prevent unexpected quota consumption or runaway cloud billing, requests enforce a 30-second client timeout (`GEMINI_TIMEOUT_SECONDS=30`) with **zero automatic retries**.
+- **Truth-in-Documentation Disclosure:**
+  - Automated CI and regression verification relies exclusively on mocked responses (`tests/test_ai_service.py`).
+  - Genuine live API verification remains blocked by third-party provider availability issues: historical execution resulted in 3 HTTP 503 provider unavailability responses, 2 timeouts, and 1 HTTP 404 response across six (6) total attempts, with zero (0) successful genuine generations received.
+  - Demonstration dashboard screenshots utilize synthetic offline fixtures with prominent disclosure notices.
+  - Model availability, latency, and free-tier quotas are entirely provider-dependent. This project makes no claims of defect-free, hallucination-free, production-proven, or live AI-validated functionality.
+
 ---
 
 ## Technology Stack & Requirements
 
 - **Runtime:** Python 3.12+ (tested on Python 3.12.10)
-- **Web Framework:** FastAPI 0.165+, Starlette 1.10+, Uvicorn 0.54+
-- **Data Analysis & Charts:** Pandas 3.1+, Matplotlib 3.11+
-- **Database ORM:** SQLAlchemy 2.1+, psycopg2-binary 2.9+
-- **Templating:** Jinja2 3.1+
-- **HTTP Client:** HTTPX 0.28+, Requests 2.34+
-- **Configuration:** PyYAML 6.0+, Python-Dotenv 1.2+
+- **Web Framework:** FastAPI 0.115+, Starlette 0.45+, Uvicorn 0.34+
+- **Data Analysis & Visualization:** Pandas 2.2+, Matplotlib 3.10+
+- **Database & ORM:** SQLAlchemy 2.0+, psycopg2-binary 2.9+
+- **Templating & Safety:** Jinja2 3.1+ (with autoescaping active)
+- **Networking:** HTTPX 0.28+, Requests 2.32+
 - **Testing:** Pytest 9.2+, Pytest-Cov 7.1+
 
 ---
 
-## Installation & Setup
+## Installation & Quick Start
 
 ### 1. Clone & Set Up Virtual Environment
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/saxenaanirudha/qa-automation-operator.git
 cd qa-automation-operator
 
-# Create and activate Python virtual environment
+# Create and activate virtual environment
 python -m venv .venv
 
 # On Linux / macOS:
@@ -118,227 +192,111 @@ pip install -r requirements.txt
 
 ### 3. Configure Environment Variables
 
-Copy `.env.example` to `.env` and adjust settings as required:
-
 ```bash
 cp .env.example .env
 ```
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ENVIRONMENT` | `development` | Set to `production` to enforce fail-closed API key security. |
+| `ENVIRONMENT` | `development` | Set to `production` to enforce fail-closed security. |
 | `API_KEY` | *(empty)* | Secret key for `X-API-Key` authentication. Required in production. |
-| `REQUIRE_API_KEY` | `false` | When `true`, enforces `X-API-Key` even in `development` mode. |
-| `RATE_LIMIT_ENABLED` | `true` | Enables or disables sliding-window rate limiting. |
-| `RATE_LIMIT_REQUESTS`| `60` | Maximum requests allowed per rate limit window. |
-| `RATE_LIMIT_WINDOW`  | `60` | Duration of rate limiting window in seconds. |
-| `TRUST_PROXIES`      | `false`| When `true`, parses client IP from `X-Forwarded-For`. |
-| `TRUSTED_PROXIES`    | `127.0.0.1,::1,testclient` | Comma-separated list of peer IPs permitted to forward client headers. |
-| `DATABASE_URL`       | `sqlite:///qa_results.db` | SQLAlchemy connection URL (SQLite or PostgreSQL). |
-| `SLACK_WEBHOOK_URL`  | *(empty)* | Optional Incoming Webhook URL for Slack alerts. |
-| `TEAMS_WEBHOOK_URL`  | *(empty)* | Optional Incoming Webhook URL for Teams alerts. |
-| `REPORT_BASE_URL`    | *(empty)* | Optional base URL prepended to report links in webhooks. |
-| `AI_ENABLED`         | `false`   | Enables optional Generative AI test analysis and recommendations. |
-| `GEMINI_API_KEY`     | *(empty)* | Google Gemini API key (transmitted strictly via `x-goog-api-key` header). |
-| `GEMINI_MODEL`       | `gemini-3.8-flash` | Configured Gemini model identifier. |
-| `GEMINI_TIMEOUT_SECONDS` | `30`  | Request timeout in seconds (defensive fallback to 30.0s). |
+| `DATABASE_URL` | `sqlite:///qa_results.db` | SQLAlchemy connection string (SQLite or PostgreSQL). |
+| `RATE_LIMIT_ENABLED` | `true` | Enables in-memory sliding-window rate limiting. |
+| `AI_ENABLED` | `false` | Enables optional advisory Gen AI test insights. |
+| `GEMINI_API_KEY` | *(empty)* | Optional Google Gemini API key. Transmitted via `x-goog-api-key` header. |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | Configured Gemini model identifier. |
+| `GEMINI_TIMEOUT_SECONDS` | `30` | Client request timeout in seconds with zero automatic retries. |
 
 ---
 
-## Usage Guide
+## Execution Guide
 
 ### Command-Line Interface (CLI)
 
-The CLI runner `main.py` is fully self-contained and operates directly without starting the web server:
+The CLI runner (`main.py`) operates standalone without requiring the FastAPI service:
 
 ```bash
-# Analyze a test run from CSV
+# Ingest and analyze test results from CSV
 python main.py --input sample_data/test_results.csv
 
-# Analyze a test run from JUnit XML
+# Ingest and analyze test results from JUnit XML
 python main.py --input sample_data/junit_results.xml --format junit
 
-# Enforce Quality Gate (exits with code 1 if Quality Gate fails)
+# Enforce Quality Gate in CI (exits with code 1 if Quality Gate evaluates to FAIL)
 python main.py --input sample_data/test_results.csv --enforce-quality-gate
 
-# Generate an HTML report
+# Generate standalone self-contained HTML report
 python main.py --input sample_data/test_results.csv --report
 
-# Dispatch notifications on completion
+# Dispatch webhook notifications to Slack and Microsoft Teams
 python main.py --input sample_data/test_results.csv --notify --slack --teams
 ```
 
-### PowerShell Helper Script (Windows)
+### FastAPI REST Service
 
-```powershell
-# Run CLI demo analysis
-.\start-project.ps1 -Mode cli
-
-# Start the FastAPI server locally
-.\start-project.ps1 -Mode api
-
-# Start Docker Compose services
-.\start-project.ps1 -Mode docker
-```
-
-### Running the FastAPI REST API
-
-Start the local development server:
+Start the local API daemon:
 
 ```bash
 uvicorn src.api.app:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Interactive OpenAPI Swagger documentation is immediately accessible at:
+Interactive documentation is available at:
 - **Swagger UI:** `http://localhost:8000/docs`
 - **ReDoc:** `http://localhost:8000/redoc`
 
----
-
-## API Endpoints Reference
-
-| Method | Endpoint | Auth Required | Description |
-|---|---|---|---|
-| `GET` | `/health` | No | Liveness probe returning application status and version. |
-| `GET` | `/health/db` | No | Verifies database connectivity and query execution. |
-| `GET` | `/builds` | Optional* | Lists stored build history (`?limit=20`). |
-| `GET` | `/builds/{build}` | Optional* | Retrieves summary metrics for a specific build. |
-| `GET` | `/builds/{build}/tests` | Optional* | Retrieves individual test results (`?status=FAIL&module=Payment`). |
-| `GET` | `/builds/{build}/failures` | Optional* | Returns detailed failure pattern breakdown. |
-| `GET` | `/builds/{build}/comparison` | Optional* | Compares specified build against preceding build. |
-| `GET` | `/builds/{build}/risk` | Optional* | Calculates module risk scores and risk ranking. |
-| `GET` | `/builds/{build}/quality-gate`| Optional* | Evaluates Quality Gate status and triggered rules. |
-| `POST`| `/builds/{build}/report` | **Yes** (`X-API-Key`) | Triggers server-side HTML dashboard report generation. |
-| `POST`| `/builds/{build}/notify` | **Yes** (`X-API-Key`) | Dispatches formatted alert payload to configured webhooks. |
-| `GET` | `/analysis/trends` | Optional* | Multi-build quality trajectory and failure trend analysis. |
-| `GET` | `/analysis/flaky-tests` | Optional* | Detects non-deterministic tests across historical builds. |
-| `POST`| `/analyze` | **Yes** (`X-API-Key`) | Multipart upload for `.csv` or `.xml` test results. |
-
-*\*Note: When `REQUIRE_API_KEY=true` or in production mode, all sensitive endpoints enforce authentication.*
-
-### Making Authenticated Requests
+#### Example Authenticated Ingestion via cURL
 
 ```bash
-# Upload and analyze a test execution result file
 curl -X POST "http://localhost:8000/analyze" \
   -H "X-API-Key: your-secret-api-key" \
   -F "file=@sample_data/test_results.csv" \
   -F "format=csv"
-
-# Trigger Slack/Teams notification for build 245
-curl -X POST "http://localhost:8000/builds/245/notify" \
-  -H "X-API-Key: your-secret-api-key" \
-  -H "Content-Type: application/json" \
-  -d '{"slack": true, "teams": false}'
 ```
 
 ---
 
-## Database Configuration
+## Docker & Container Deployment
 
-### SQLite (Default for Local Development & Testing)
-Zero-configuration SQLite database stored locally:
-```bash
-DATABASE_URL=sqlite:///qa_results.db
-```
-SQLAlchemy SQLite connection includes `timeout=30` to handle brief file locks during concurrent reads.
-
-### PostgreSQL (Production & Containerized Deployment)
-```bash
-DATABASE_URL=postgresql+psycopg2://qa_user:<REPLACE_WITH_STRONG_PASSWORD>@postgres:5432/qa_operator
-```
-The application manages table initialization via SQLAlchemy ORM metadata (`init_db()`), connection pooling, and explicit rollback on concurrent duplicate key conflicts (`DuplicateBuildError`).
-
----
-
-## Docker Compose & Container Security
-
-To run the application inside Docker containers:
+To launch the operator alongside a managed PostgreSQL database container:
 
 ```bash
-# Launch API and PostgreSQL services
+# Start API service and PostgreSQL daemon
 docker compose up -d --build
 
-# View container logs
+# Inspect service logs
 docker compose logs -f api
 
-# Tear down containers and preserve database volume
+# Stop containers while preserving database volume
 docker compose down
 ```
 
-### Production Security Hardening Recommendations
+---
 
-When deploying `docker-compose.yml` to production environments:
-1. **Change Default Credentials:** Set `POSTGRES_PASSWORD` and `POSTGRES_USER` via environment variables or Docker secrets. Never run with weak or unconfigured credentials.
-2. **Restrict PostgreSQL Port Binding:** Modify `docker-compose.yml` to bind `127.0.0.1:5432:5432` or omit host port exposure entirely, allowing access only within the internal Docker bridge network (`qa_api` -> `qa_postgres`).
-3. **Configure API Keys:** Inject `ENVIRONMENT=production` and `API_KEY=<strong-random-key>` into container environment variables.
-4. **Set Resource Constraints:** Specify CPU and memory limits (`deploy.resources.limits`) to prevent denial-of-service via resource exhaustion.
+## Regression Verification & Test Evidence
+
+The platform enforces strict automated testing using Pytest:
+
+```bash
+# Run the complete test suite with coverage
+pytest --cov=src --cov-report=term-missing
+```
+
+### Verification Baselines & Coverage
+- **Latest Full Regression Suite:** **311 collected, 307 passed, 4 skipped** (`tests/test_postgres_integration.py` safely skipped in environments without an active container daemon), **zero failures, zero errors**.
+- **Previous PostgreSQL-Enabled Baseline:** **307 collected, 307 passed, zero skipped** (achieved during dedicated container runs prior to the addition of Result 26A regression tests).
+- **Targeted Defect Remediation Suite:** **58 passed** (covering Unicode arrow rendering, percentage point `pp` notation, heuristic risk subtitle, population comparability checks, and tied error distribution).
+- **Overall Statement Coverage:** **92%** (1,998 statements, 166 missed).
+- **AI Service Statement Coverage:** **89%** (127 statements, 14 missed).
 
 ---
 
-## Generative AI Integration (Barn Door Protocol)
+## Known Limitations
 
-QA Automation Operator includes an optional, security-hardened Generative AI service (`src.services.ai_service`) powered by the official Google Gemini REST API.
-
-### Core Capabilities
-1. **Executive Test Result Summary:** High-level executive synthesis of build health, stability, and pass rates.
-2. **Probable Root Cause Analysis:** Heuristic diagnostic analysis for failed tests, mapping error traces to potential defects and remediation steps.
-3. **Recommended Test Scenarios:** Proactive boundary and regression scenario suggestions tailored to high-risk modules.
-
-### Hardened Architecture & Security Controls
-- **Default Disabled & Fail-Safe Fallback:** Disabled by default (`AI_ENABLED=false`). Any API error, timeout, or invalid response gracefully returns `None` without impacting core reporting or operations.
-- **Strict Decoupling from Quality Gates:** AI insights are **strictly advisory**. Deterministic Quality Gate evaluations (`PASS / PROCEED`, `WARNING / REVIEW`, `FAIL / BLOCK`) are computed independently and cannot be altered or overridden by AI output.
-- **Anti-Hallucination Filtering:** If a build has 0 failed tests, the service strictly suppresses and drops any hallucinated root causes. Model-generated root causes referencing non-existent test names are dropped.
-- **Credential & PII Redaction:** Regex-based pre-sanitization scrubs database URLs, bearer tokens, passwords, API keys, email addresses, credit cards, SSNs, and private IPs before dispatching prompts.
-- **Prompt Injection Containment:** Untrusted diagnostic telemetry and stack traces are strictly isolated within `<diagnostic_telemetry>` containment tags.
-- **Credential Protection:** The Gemini API key is transmitted exclusively via the `x-goog-api-key` HTTP header—never in query strings, request bodies, or log entries.
-- **Configurable Timeout:** Configurable via `GEMINI_TIMEOUT_SECONDS` (default: `30` seconds). Defensively handles non-numeric or invalid inputs. Note that 30 seconds is the default configured client timeout, not a guarantee of completion.
-- **Zero Automatic Retries:** Failed requests are never retried automatically by the HTTP client, eliminating unexpected cost or quota exhaustion.
-
-### Verification Script
-A dedicated verification module is provided to validate the integration:
-```bash
-python -m scripts.verify_live_genai
-```
-- Executes a maximum of 2 requests (Scenario A: Successful Build, Scenario B: Synthetic Failed Build).
-- Halts execution immediately if Scenario A fails without attempting Scenario B.
-- Validates model responses without leaking credentials.
-
-### Result 19 / 20 Audit Disclosure
-During live verification in Result 19, the legacy `gemini-2.5-flash` model returned HTTP 404 as it is no longer provisioned for new users. The official API recommended `gemini-3.8-flash`. Model metadata verification confirmed `gemini-3.8-flash` availability. However, a live request timed out after 8.0 seconds under peak API latency. In Result 20, the default model was formally updated to `gemini-3.8-flash` and the client timeout was made configurable (defaulting to 30.0s) with zero retries.
-
----
-
-## Verification & Testing
-
-The project maintains a rigorous, multi-layered test suite enforced under the Barn Door Protocol.
-
-### Running Pytest
-
-```bash
-# Run the full test suite with verbose output
-pytest -v
-
-# Run with test coverage measurement
-pytest --cov=src --cov-report=term
-```
-
-### Current Verification Status
-
-- **Unit & Regression Tests:** **300+ PASSED**, 0 failed, 0 errors.
-- **Code Coverage:** **92%+** across the complete codebase.
-- **AI Service Tests (`tests/test_ai_service.py`):**
-  - Verifies default disabled state, missing key handling, model configuration, and timeout defaults.
-  - Verifies defensive sanitization of invalid timeouts (`nan`, `inf`, negative, non-numeric).
-  - Verifies credential/PII redaction, prompt injection containment, and zero-failure anti-hallucination.
-  - Verifies graceful fallback on HTTP 404, HTTP 429, HTTP 500, and timeout exceptions with zero automatic retries.
-  - Verifies live verification script stop-on-failure behavior and HTML auto-escaping of AI content.
-- **Security Tests:**
-  - `tests/test_api_security.py` verifies constant-time comparison, missing/invalid keys, fail-closed production startup, sliding-window rate limiting, and trusted proxy header filtering.
-  - `tests/test_barn_door_remediation.py` verifies streaming upload size capping, path traversal protection, concurrent duplicate submission rollback, thread-safe Matplotlib generation, and XML entity expansion denial.
-- **PostgreSQL Integration Tests:**
-  - Located in `tests/test_postgres_integration.py`.
-  - **Status: 4 SKIPPED / BLOCKED.** Live container integration tests require an active Docker engine and PostgreSQL container. On host environments without a running Docker daemon, these tests safely detect absence and skip without falsifying results.
+1. **PostgreSQL Integration Suite:** 4 integration tests in `tests/test_postgres_integration.py` require an active PostgreSQL instance or container. In environments without an authorized live database, these tests safely skip.
+2. **Build Population Comparability:** Comparing builds with differing test populations (e.g., a 10-test smoke run vs a 287-test full regression) reflects suite expansion rather than like-for-like stability. The report displays an explicit limitation callout.
+3. **Build Comparison Influence on Quality Gate:** Under default configuration, build comparison evaluates aggregate pass-rate changes and flags `WORSE` as a warning. When test populations differ between runs, these aggregate classifications can still influence deterministic Quality Gate warnings. Users comparing non-equivalent test suites should inspect the prominent population limitation callout displayed in the report.
+4. **Heuristic Risk Model:** Risk scores (0–100) are computed algorithmically based on current failure counts, trends, persistent failures, and failure share. They represent heuristic operational risk indicators, not statistically validated defect probabilities.
+5. **Live Gen AI Verification:** Real-world Gemini API generation remains unverified in this release due to external provider HTTP 503 provider unavailability. Live verification requires a responsive provider endpoint and valid user credentials.
 
 ---
 

@@ -352,3 +352,50 @@ def test_highest_risk_module_spotlight_renders(db_session, tmp_report_file):
         html = f.read()
     assert "Highest Risk Module" in html
     assert "Payment" in html
+
+
+def test_remediation_presentation_fixes(db_session, tmp_report_file):
+    """Test 34: Verifies Unicode arrows, pp terminology, heuristic subtitle, and tie display."""
+    # Seed build 108 with tied errors and build 109 with differing population
+    rows_108 = [
+        ("t1", "Payment", "FAIL", "Payment API Error"),
+        ("t2", "Payment", "FAIL", "TimeoutException"),
+        ("t3", "Auth", "PASS", None),
+    ]
+    _seed(db_session, 108, rows_108)
+
+    rows_109 = [
+        ("t1", "Payment", "PASS", None),
+        ("t2", "Payment", "PASS", None),
+        ("t3", "Auth", "PASS", None),
+        ("t4_new", "Auth", "PASS", None),
+    ]
+    _seed(db_session, 109, rows_109)
+
+    # Generate report for build 108
+    path_108 = generate_html_report(108, output_path=tmp_report_file, session=db_session)
+    with open(path_108, "r", encoding="utf-8") as f:
+        html_108 = f.read()
+
+    # 1. Heuristic module risk scoring subtitle
+    assert "heuristic module risk scoring (0-100 scale)" in html_108
+    assert "defect probability modeling" not in html_108
+
+    # 2. Tied errors display
+    assert "Payment API Error, TimeoutException (Tie)" in html_108
+
+    # Generate report for build 109 (comparing against 108)
+    tmp_path_109 = tmp_report_file.replace(".html", "_109.html")
+    path_109 = generate_html_report(109, output_path=tmp_path_109, session=db_session)
+    with open(path_109, "r", encoding="utf-8") as f:
+        html_109 = f.read()
+
+    # 3. Unicode arrow rendering - NO literal &amp;rarr;
+    assert "&amp;rarr;" not in html_109
+    assert "→" in html_109
+
+    # 4. Percentage points (pp) terminology
+    assert "pp" in html_109
+
+    # 5. Population Comparability Limitation notice
+    assert "Population Comparability Limitation" in html_109
