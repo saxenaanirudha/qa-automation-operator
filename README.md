@@ -305,3 +305,20 @@ pytest --cov=src --cov-report=term-missing
 ## License
 
 This project is licensed under the terms of the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
+## GitHub Actions CI/CD Verification
+
+The v1.1.1-preview release successfully completed GitHub Actions Run #6.
+
+- Pipeline status: SUCCESS
+- Local regression: 323 passed, 0 skipped, 0 failures
+- Overall statement coverage: 92%
+- AI service statement coverage: 89%
+- PostgreSQL integration: 4/4 passed
+- Docker Compose configuration: Validated
+- Open-source license: MIT
+
+![GitHub Actions Pipeline Success](docs/screenshots/08_github_actions_pipeline.png)
+
+[View GitHub Actions Run #6](https://github.com/saxenaanirudha/qa-automation-operator/actions/runs/46045860527)
+
