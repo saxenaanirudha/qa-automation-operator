@@ -222,14 +222,23 @@ def evaluate_trend(
 
 
 def evaluate_build_comparison(
-    status_str: str, config: Optional[Dict[str, Any]] = None
+    status_str: str,
+    population_status: str = "IDENTICAL",
+    config: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, Optional[Dict[str, Any]]]:
     """
-    Evaluates build comparison status.
+    Evaluates build comparison status factoring in population comparability.
 
     Rules:
-        - status_str in warning_on list → WARNING
-        - else → PASS
+        - If population_status == "DIFFERENT":
+            The comparison cannot establish a like-for-like regression.
+            Do not trigger a regression warning. Return ("UNKNOWN", None).
+        - If population_status == "UNKNOWN":
+            Insufficient comparison evidence. Return ("PASS", None) to preserve
+            conservative existing release behavior (e.g. initial builds).
+        - If population_status == "IDENTICAL":
+            - status_str in warning_on list → ("WARNING", rule_dict)
+            - else → ("PASS", None)
 
     Returns:
         Tuple of (status, triggered_rule_dict_or_None)
@@ -237,9 +246,14 @@ def evaluate_build_comparison(
     cfg = (config or get_quality_gate_config())["build_comparison"]
     warning_on = cfg.get("warning_on", [])
 
+    if population_status == "DIFFERENT":
+        return "UNKNOWN", None
+
     if status_str in warning_on:
         status = "WARNING"
         msg = f"Build comparison status is {status_str}."
+        if population_status == "UNKNOWN":
+            msg += " (Insufficient test identity evidence to verify population equivalence)."
         return status, {
             "rule": "BUILD_COMPARISON",
             "severity": status,
@@ -303,9 +317,13 @@ def evaluate_quality_gate(
             current_build_number, session=session
         )
         build_comp_val = comp_report.get("overall_status", "UNKNOWN")
+        population_status = comp_report.get("population_status", "UNKNOWN")
+        comparability_note = comp_report.get("comparability_note")
         newly_failing_count = len(comp_report.get("newly_failing_tests", []))
     except (NoPreviousBuildError, BuildNotFoundError):
         build_comp_val = "UNKNOWN"
+        population_status = "UNKNOWN"
+        comparability_note = "Cannot establish population equivalence because test results are unavailable for one or both builds."
         newly_failing_count = 0
 
     # 3. Evaluate each rule
@@ -314,7 +332,11 @@ def evaluate_quality_gate(
     hr_status, hr_trig = evaluate_high_risk_modules(high_risk_count, config=qg_config)
     nft_status, nft_trig = evaluate_new_failures(newly_failing_count, config=qg_config)
     trend_status, trend_trig = evaluate_trend(overall_trend_val, config=qg_config)
-    comp_status, comp_trig = evaluate_build_comparison(build_comp_val, config=qg_config)
+    comp_status, comp_trig = evaluate_build_comparison(
+        build_comp_val,
+        population_status=population_status,
+        config=qg_config,
+    )
 
     # 4. Assemble checks
     checks = {
@@ -341,6 +363,8 @@ def evaluate_quality_gate(
         "build_comparison": {
             "value": build_comp_val,
             "status": comp_status,
+            "population_status": population_status,
+            "details": comparability_note,
         },
     }
 

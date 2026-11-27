@@ -405,3 +405,125 @@ def test_overall_result_is_deterministic(db_session):
     res1 = evaluate_quality_gate(100, session=db_session)
     res2 = evaluate_quality_gate(100, session=db_session)
     assert res1 == res2
+
+
+# ---------------------------------------------------------------------------
+# Tests 33-39: Population Comparability & Quality Gate Safety
+# ---------------------------------------------------------------------------
+
+def test_qg_build_comparison_identical_regression(db_session):
+    """Test 33: Identical populations with genuine regression triggers WARNING."""
+    _seed(db_session, 501, [_pass("t1", "M"), _pass("t2", "M")])
+    _seed(db_session, 502, [_pass("t1", "M"), _fail("t2", "M")])
+
+    res = evaluate_quality_gate(502, session=db_session)
+    assert res["checks"]["build_comparison"]["value"] == "WORSE"
+    assert res["checks"]["build_comparison"]["status"] == "WARNING"
+    assert res["checks"]["build_comparison"]["population_status"] == "IDENTICAL"
+    assert any(r["rule"] == "BUILD_COMPARISON" for r in res["triggered_rules"])
+
+
+def test_qg_build_comparison_identical_improvement(db_session):
+    """Test 34: Identical populations with improvement evaluates to PASS."""
+    _seed(db_session, 503, [_pass("t1", "M"), _fail("t2", "M")])
+    _seed(db_session, 504, [_pass("t1", "M"), _pass("t2", "M")])
+
+    res = evaluate_quality_gate(504, session=db_session)
+    assert res["checks"]["build_comparison"]["value"] == "BETTER"
+    assert res["checks"]["build_comparison"]["status"] == "PASS"
+    assert res["checks"]["build_comparison"]["population_status"] == "IDENTICAL"
+
+
+def test_qg_build_comparison_different_populations_suppresses_warning(db_session):
+    """Test 35: Different populations do not trigger regression warning on aggregate WORSE."""
+    # Build 505: 287 tests (simulated by 10 tests, 100% pass)
+    _seed(db_session, 505, [_pass(f"t_{i}", "Auth") for i in range(10)])
+    # Build 506: 2 tests (smoke slice: 1 pass, 1 fail = 50% pass rate -> aggregate WORSE)
+    _seed(db_session, 506, [_pass("smoke_1", "Smoke"), _fail("smoke_2", "Smoke")])
+
+    res = evaluate_quality_gate(506, session=db_session)
+    # The aggregate metric delta is WORSE
+    assert res["checks"]["build_comparison"]["value"] == "WORSE"
+    # But because populations differ, status is UNKNOWN (not WARNING, not verified PASS)
+    assert res["checks"]["build_comparison"]["status"] == "UNKNOWN"
+    assert res["checks"]["build_comparison"]["population_status"] == "DIFFERENT"
+    assert "Test populations differ" in res["checks"]["build_comparison"]["details"]
+    # No BUILD_COMPARISON rule in triggered_rules
+    assert not any(r["rule"] == "BUILD_COMPARISON" for r in res["triggered_rules"])
+
+
+def test_qg_build_comparison_equal_count_different_module_identity(db_session):
+    """Test 36: Equal test count but different canonical module identity classified as DIFFERENT."""
+    _seed(db_session, 507, [_pass("t1", "Auth"), _pass("t2", "Auth")])
+    # Same names, but different module
+    _seed(db_session, 508, [_pass("t1", "Checkout"), _fail("t2", "Checkout")])
+
+    res = evaluate_quality_gate(508, session=db_session)
+    assert res["checks"]["build_comparison"]["population_status"] == "DIFFERENT"
+    assert res["checks"]["build_comparison"]["status"] == "UNKNOWN"
+    assert not any(r["rule"] == "BUILD_COMPARISON" for r in res["triggered_rules"])
+
+
+def test_qg_build_comparison_unknown_population_preserves_release(db_session):
+    """Test 37: Missing previous build evaluates to UNKNOWN population and preserves PASS."""
+    _seed(db_session, 509, [_pass("t1", "M"), _pass("t2", "M")])
+
+    res = evaluate_quality_gate(509, session=db_session)
+    assert res["checks"]["build_comparison"]["value"] == "UNKNOWN"
+    assert res["checks"]["build_comparison"]["population_status"] == "UNKNOWN"
+    assert res["checks"]["build_comparison"]["status"] == "PASS"
+
+
+def test_qg_independent_critical_failures_maintained_with_different_population(db_session):
+    """Test 38: Independent critical failure rules still trigger FAIL even if population is DIFFERENT."""
+    _seed(db_session, 510, [_pass("t1", "M"), _pass("t2", "M")])
+    # Build 511 has 10 failures (>= fail_at=10 in default config)
+    fails = [_fail(f"diff_fail_{i}", "M") for i in range(10)]
+    _seed(db_session, 511, fails)
+
+    res = evaluate_quality_gate(511, session=db_session)
+    assert res["checks"]["build_comparison"]["population_status"] == "DIFFERENT"
+    assert res["checks"]["build_comparison"]["status"] == "UNKNOWN"
+    # Failure count rule triggers FAIL independently
+    assert res["status"] == "FAIL"
+    assert res["release_recommendation"] == "BLOCK"
+    assert any(r["rule"] == "FAILURE_COUNT" and r["severity"] == "FAIL" for r in res["triggered_rules"])
+
+
+def test_qg_html_report_compatibility_with_different_population(db_session, tmp_path):
+    """Test 39: HTML reporter renders cleanly with different population metadata."""
+    import os
+    from src.reporter.html_reporter import generate_html_report
+
+    _seed(db_session, 512, [_pass("t1", "M"), _pass("t2", "M")])
+    _seed(db_session, 513, [_pass("diff_1", "M"), _fail("diff_2", "M")])
+
+    out_file = str(tmp_path / "report_513.html")
+    report_path = generate_html_report(513, output_path=out_file, session=db_session)
+    assert os.path.exists(report_path)
+
+    with open(report_path, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    assert "Population Comparability Limitation" in html
+    assert "Test populations differ" in html
+
+
+def test_qg_build_comparison_unknown_population_with_worse_status_triggers_warning():
+    """Test 40: UNKNOWN population with aggregate WORSE result triggers WARNING with disclosure."""
+    status, rule = evaluate_build_comparison("WORSE", population_status="UNKNOWN")
+    assert status == "WARNING"
+    assert rule["severity"] == "WARNING"
+    assert "Insufficient test identity evidence" in rule["message"]
+
+
+def test_qg_build_comparison_configurable_policy_preserved():
+    """Test 41: Custom configurable warning_on policy is respected."""
+    custom_cfg = {"build_comparison": {"warning_on": ["MIXED"]}}
+    status, rule = evaluate_build_comparison("MIXED", population_status="IDENTICAL", config=custom_cfg)
+    assert status == "WARNING"
+    assert rule["severity"] == "WARNING"
+
+    status_worse, rule_worse = evaluate_build_comparison("WORSE", population_status="IDENTICAL", config=custom_cfg)
+    assert status_worse == "PASS"
+    assert rule_worse is None

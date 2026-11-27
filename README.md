@@ -1,6 +1,6 @@
 # QA Automation Operator
 
-[![CI - Pytest](https://img.shields.io/badge/tests-307%20passed%20%7C%204%20skipped-success)](https://github.com/saxenaanirudha/qa-automation-operator)
+[![CI - Pytest](https://img.shields.io/badge/tests-323%20passed%20%7C%200%20skipped-success)](https://github.com/saxenaanirudha/qa-automation-operator)
 [![Coverage](https://img.shields.io/badge/coverage-92%25%20overall%20%7C%2089%25%20ai-blue)](https://github.com/saxenaanirudha/qa-automation-operator)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/fastapi-0.115%2B-009688)](https://fastapi.tiangolo.com/)
@@ -21,7 +21,7 @@ The platform generates self-contained, interactive HTML reports featuring visual
 
 ![Executive QA Dashboard](docs/screenshots/01_qa_executive_dashboard.png)
 
-> **Data Provenance:** The executive dashboard above reflects a genuine historical test run of **287 automated tests** (Build 10001). This build metric is distinct from the project's internal **311-test regression test suite**.
+> **Data Provenance:** The executive dashboard above reflects a genuine historical test run of **287 automated tests** (Build 10001). This build metric is distinct from the project's internal **323-test regression test suite**.
 
 ---
 
@@ -145,6 +145,7 @@ QA Automation Operator includes an optional Generative AI service (`src.services
 - **Strict Advisory Decoupling:** AI insights are **strictly advisory**. Deterministic Quality Gate evaluations (`PASS / PROCEED`, `WARNING / REVIEW`, `FAIL / BLOCK`) are computed independently and cannot be altered or overridden by AI responses.
 - **Prompt Injection Mitigation & Data Sanitization:** Diagnostic stack traces are isolated within `<diagnostic_telemetry>` mitigation boundary tags, and regex filters automatically redact database credentials, passwords, bearer tokens, API keys, and IP addresses before prompts are constructed.
 - **Zero Automatic Retries & Configurable Timeout:** To prevent unexpected quota consumption or runaway cloud billing, requests enforce a 30-second client timeout (`GEMINI_TIMEOUT_SECONDS=30`) with **zero automatic retries**.
+- **Graceful Provider Failure Handling:** On provider timeouts, network errors, upstream unavailability (such as HTTP 503 high demand), or unparseable payloads, the service returns `None` and safely omits the advisory section, preserving full deterministic reporting and quality gate evaluation without unhandled exceptions.
 - **Truth-in-Documentation Disclosure:**
   - Automated CI and regression verification relies exclusively on mocked responses (`tests/test_ai_service.py`).
   - Genuine live API verification remains blocked by third-party provider availability issues: historical execution resulted in 3 HTTP 503 provider unavailability responses, 2 timeouts, and 1 HTTP 404 response across six (6) total attempts, with zero (0) successful genuine generations received.
@@ -282,19 +283,20 @@ pytest --cov=src --cov-report=term-missing
 ```
 
 ### Verification Baselines & Coverage
-- **Latest Full Regression Suite:** **311 collected, 307 passed, 4 skipped** (`tests/test_postgres_integration.py` safely skipped in environments without an active container daemon), **zero failures, zero errors**.
-- **Previous PostgreSQL-Enabled Baseline:** **307 collected, 307 passed, zero skipped** (achieved during dedicated container runs prior to the addition of Result 26A regression tests).
-- **Targeted Defect Remediation Suite:** **58 passed** (covering Unicode arrow rendering, percentage point `pp` notation, heuristic risk subtitle, population comparability checks, and tied error distribution).
-- **Overall Statement Coverage:** **92%** (1,998 statements, 166 missed).
+- **Consolidated PostgreSQL-Enabled Regression:** **323 collected, 323 passed, zero skipped, zero failures, zero errors** (duration: 88.27s with statement coverage, executed against an isolated PostgreSQL 16 Alpine container on port 5433).
+- **PostgreSQL Integration Tests:** **4 passed** (`test_postgres_connectivity_and_schema_init`, `test_postgres_build_persistence`, `test_postgres_duplicate_submission_rollback`, `test_postgres_concurrent_writes`).
+- **Targeted Hardening Suite:** **69 passed** (covering population comparability, canonical module identity, non-comparable regression suppression, duplicate rejection, and Quality Gate safety).
+- **Overall Statement Coverage:** **92%** (2,006 statements, 162 missed).
 - **AI Service Statement Coverage:** **89%** (127 statements, 14 missed).
+- **Docker Compose Validation:** Exit code 0 (`docker compose config --quiet` validated successfully against Docker Engine 29.9.3 / Compose v5.7.0).
 
 ---
 
 ## Known Limitations
 
-1. **PostgreSQL Integration Suite:** 4 integration tests in `tests/test_postgres_integration.py` require an active PostgreSQL instance or container. In environments without an authorized live database, these tests safely skip.
-2. **Build Population Comparability:** Comparing builds with differing test populations (e.g., a 10-test smoke run vs a 287-test full regression) reflects suite expansion rather than like-for-like stability. The report displays an explicit limitation callout.
-3. **Build Comparison Influence on Quality Gate:** Under default configuration, build comparison evaluates aggregate pass-rate changes and flags `WORSE` as a warning. When test populations differ between runs, these aggregate classifications can still influence deterministic Quality Gate warnings. Users comparing non-equivalent test suites should inspect the prominent population limitation callout displayed in the report.
+1. **PostgreSQL Integration Suite:** 4 integration tests in `tests/test_postgres_integration.py` require an active PostgreSQL container or service. Verified passing (4/4 passed) during containerized execution; in environments where Docker is not running, these tests safely skip.
+2. **Build Population Comparability:** Comparing builds with differing test populations (e.g., a 10-test smoke run vs a 287-test full regression) reflects suite expansion or slicing rather than like-for-like stability. The report displays an explicit limitation callout.
+3. **Build Comparison Influence on Quality Gate:** Under default configuration, build comparison evaluates canonical test population equivalence (`(module, test_name)`). When test populations differ, false-alarm `WORSE` warnings are suppressed so non-equivalent slices do not inappropriately block releases, while independent failure thresholds (failure count, pass rate, high-risk modules) continue to enforce quality gates strictly.
 4. **Heuristic Risk Model:** Risk scores (0–100) are computed algorithmically based on current failure counts, trends, persistent failures, and failure share. They represent heuristic operational risk indicators, not statistically validated defect probabilities.
 5. **Live Gen AI Verification:** Real-world Gemini API generation remains unverified in this release due to external provider HTTP 503 provider unavailability. Live verification requires a responsive provider endpoint and valid user credentials.
 

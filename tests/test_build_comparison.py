@@ -485,3 +485,51 @@ def test_population_comparability_identical_vs_different(db_session):
     assert rep_different["is_comparable"] is False
     assert "Test populations differ" in rep_different["comparability_note"]
     assert "Aggregate pass-rate difference reflects test suite population changes" in rep_different["comparability_note"]
+
+
+def test_population_comparability_canonical_module_difference(db_session):
+    """
+    Test 26: Equal test counts and identical test names but different module identities
+    are correctly classified as DIFFERENT.
+    """
+    _seed_build(db_session, 803, [("test_alpha", "Auth", "PASS", None), ("test_beta", "Auth", "PASS", None)])
+    _seed_build(db_session, 804, [("test_alpha", "Checkout", "PASS", None), ("test_beta", "Checkout", "PASS", None)])
+
+    rep = compare_builds(803, 804, session=db_session)
+    assert rep["population_status"] == "DIFFERENT"
+    assert rep["is_comparable"] is False
+    assert "Test populations differ" in rep["comparability_note"]
+
+
+def test_population_comparability_unknown_when_empty(db_session):
+    """
+    Test 27: Build with zero test results evaluates to UNKNOWN population status.
+    """
+    _seed_build(db_session, 805, [])
+    _seed_build(db_session, 806, [("test_alpha", "Auth", "PASS", None)])
+
+    rep = compare_builds(805, 806, session=db_session)
+    assert rep["population_status"] == "UNKNOWN"
+    assert rep["is_comparable"] is False
+    assert "Cannot establish population equivalence" in rep["comparability_note"]
+
+
+def test_duplicate_test_names_in_build_raises_value_error(db_session):
+    """
+    Test 28: Duplicate test names within a build raise ValueError during comparison.
+    """
+    from src.database.models import Build, TestResult
+    b = Build(build_number=807, total_tests=2, passed=2, failed=0, skipped=0, pass_rate=100.0, failure_rate=0.0)
+    db_session.add(b)
+    db_session.flush()
+
+    tr1 = TestResult(build_id=b.id, test_name="dup_test", module="Auth", status="PASS", duration=0.1)
+    tr2 = TestResult(build_id=b.id, test_name="dup_test", module="Auth", status="PASS", duration=0.1)
+    db_session.add_all([tr1, tr2])
+    db_session.commit()
+
+    _seed_build(db_session, 808, [("test_other", "Auth", "PASS", None)])
+
+    import pytest
+    with pytest.raises(ValueError, match="Duplicate test_name found in build 807"):
+        compare_builds(807, 808, session=db_session)

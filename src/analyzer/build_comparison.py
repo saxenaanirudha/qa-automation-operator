@@ -258,16 +258,16 @@ def compare_builds(
     modules    = _module_comparison(prev_results, curr_results)
     test_sets  = _test_set_analysis(prev_results, curr_results)
 
-    # Evaluate population identity comparability
-    prev_names = {tr.test_name for tr in prev_results}
-    curr_names = {tr.test_name for tr in curr_results}
-    common_names = prev_names & curr_names
+    # Evaluate population identity comparability using canonical (module, test_name)
+    prev_identities = {(tr.module, tr.test_name) for tr in prev_results}
+    curr_identities = {(tr.module, tr.test_name) for tr in curr_results}
+    common_identities = prev_identities & curr_identities
 
-    if not prev_names or not curr_names:
+    if not prev_identities or not curr_identities:
         population_status = "UNKNOWN"
         is_comparable = False
         comparability_note = "Cannot establish population equivalence because test results are unavailable for one or both builds."
-    elif prev_names == curr_names:
+    elif prev_identities == curr_identities:
         population_status = "IDENTICAL"
         is_comparable = True
         comparability_note = None
@@ -277,9 +277,9 @@ def compare_builds(
         added_cnt = len(test_sets["tests_added"])
         removed_cnt = len(test_sets["tests_removed"])
         comparability_note = (
-            f"Test populations differ (Build {previous_build_number}: {len(prev_names)} tests vs "
-            f"Build {current_build_number}: {len(curr_names)} tests; {added_cnt} added, {removed_cnt} removed; "
-            f"{len(common_names)} common). Aggregate pass-rate difference reflects test suite population changes "
+            f"Test populations differ (Build {previous_build_number}: {len(prev_identities)} tests vs "
+            f"Build {current_build_number}: {len(curr_identities)} tests; {added_cnt} added, {removed_cnt} removed; "
+            f"{len(common_identities)} common). Aggregate pass-rate difference reflects test suite population changes "
             f"rather than a like-for-like regression comparison."
         )
 
